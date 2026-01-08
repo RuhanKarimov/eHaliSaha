@@ -49,9 +49,7 @@ public abstract class BaseE2ETestE2E {
 
     protected void go(String path) {
         String url = baseUrl() + (path.startsWith("/") ? path : ("/" + path));
-        System.out.println("GO => " + url);
         driver.get(url);
-        System.out.println("AFTER => " + driver.getCurrentUrl());
     }
 
     protected WebElement byId(String id) {
