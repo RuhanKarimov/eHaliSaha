@@ -247,7 +247,7 @@
                 <skipITs>true</skipITs>
 
                 <!-- DEFAULTS: hiçbir şey vermezsen bile çalışsın -->
-                <e2e.baseUrl>http://localhost:18080</e2e.baseUrl>
+                <e2e.baseUrl>http://localhost:8080</e2e.baseUrl>
                 <e2e.seleniumUrl>http://localhost:14444/wd/hub</e2e.seleniumUrl>
             </properties>
             <build>

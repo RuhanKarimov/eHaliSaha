@@ -68,6 +68,6 @@ docker compose -f docker-compose.ci.yml down -v
 
 
 ## Not: E2E Testleri src/test/java içinde (Java)
-- E2E sınıf isimleri `*E2E*.java` olmalı (örn. `Scenario01OwnerLoginE2E`).
+- E2E sınıf isimleri `*E2E*.java` olmalı (örn. `Scenario01OwnerLoginTestE2E`).
 - `mvn -P e2e -Dtest=<SinifAdi> test` ile sadece tek E2E senaryosu koşar.
 - Jenkins, `docker-compose.ci.yml` ile app (18080) ve selenium (14444) portlarını host'a açar.
