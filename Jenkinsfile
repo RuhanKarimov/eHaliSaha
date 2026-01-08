@@ -81,9 +81,30 @@ pipeline {
         stage('5-Run System on Docker') {
             steps {
                 bat 'docker compose -f %COMPOSE_FILE% up -d --build'
-                sleep time: 20, unit: 'SECONDS'
+                bat 'powershell -NoProfile -Command "for($i=0;$i -lt 30;$i++){ try { $r=Invoke-WebRequest http://localhost:14444/status -UseBasicParsing; if($r.StatusCode -eq 200){Write-Host \\"Grid ready\\"; exit 0} } catch{} Start-Sleep 2 }; exit 1"'
+                sleep time: 5, unit: 'SECONDS'
             }
         }
+
+        stage('5.5-Smoke: Selenium -> App network check') {
+            steps {
+                script {
+                    if (isUnix()) {
+                        sh """
+                          docker compose -f ${env.COMPOSE_FILE} ps
+                          docker compose -f ${env.COMPOSE_FILE} exec -T selenium sh -lc 'apk add --no-cache curl >/dev/null 2>&1 || true; echo BASE_URL=${env.BASE_URL}; curl -I ${env.BASE_URL}/ui/login.html?role=OWNER'
+                        """
+                    } else {
+                        bat """
+                          docker compose -f %COMPOSE_FILE% ps
+                          docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc "apk add --no-cache curl > /dev/null 2>&1 || true; echo BASE_URL=%BASE_URL%; curl -I %BASE_URL%/ui/login.html?role=OWNER"
+                        """
+                    }
+                }
+            }
+        }
+
+
 
         stage('6.1-E2E (Selenium) Scenario 1: Owner Login') {
             steps {
