@@ -34,6 +34,10 @@ public abstract class BaseE2ETestE2E {
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--window-size=1280,900");
 
+        options.setAcceptInsecureCerts(true);
+        options.addArguments("--ignore-certificate-errors");
+        options.addArguments("--allow-insecure-localhost");
+
         driver = new RemoteWebDriver(new URL(seleniumUrl()), options);
         wait = new WebDriverWait(driver, Duration.ofSeconds(20));
     }
@@ -45,7 +49,9 @@ public abstract class BaseE2ETestE2E {
 
     protected void go(String path) {
         String url = baseUrl() + (path.startsWith("/") ? path : ("/" + path));
+        System.out.println("GO => " + url);
         driver.get(url);
+        System.out.println("AFTER => " + driver.getCurrentUrl());
     }
 
     protected WebElement byId(String id) {
