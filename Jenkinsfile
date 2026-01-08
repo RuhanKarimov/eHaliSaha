@@ -18,14 +18,18 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout([$class: 'GitSCM',
-                branches: [[name: '*/main']],
-                userRemoteConfigs: [[url: 'https://github.com/RuhanKarimov/eHaliSaha.git']],
-                changelog: false,
-                poll: false
-                ])
+                checkout(
+                    changelog: false,
+                    poll: false,
+                    scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/RuhanKarimov/eHaliSaha.git']]
+                    ]
+                )
             }
         }
+
 
 
         stage('2-Build') {
