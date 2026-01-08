@@ -1,8 +1,11 @@
+
 pipeline {
     agent any
 
     options {
         timestamps()
+        skipDefaultCheckout(true)
+
     }
 
     environment {
@@ -13,11 +16,17 @@ pipeline {
     }
 
     stages {
-        stage('1-Checkout (GitHub)') {
+        stage('Checkout') {
             steps {
-                checkout scm
+                checkout([$class: 'GitSCM',
+                branches: [[name: '*/main']],
+                userRemoteConfigs: [[url: 'https://github.com/RuhanKarimov/eHaliSaha.git']],
+                changelog: false,
+                poll: false
+                ])
             }
         }
+
 
         stage('2-Build') {
             steps {
