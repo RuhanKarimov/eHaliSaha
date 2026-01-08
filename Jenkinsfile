@@ -80,15 +80,8 @@ pipeline {
 
         stage('5-Run System on Docker') {
             steps {
-                script {
-                    if (isUnix()) {
-                        sh "docker compose -f ${env.COMPOSE_FILE} up -d --build"
-                        sh "sleep 20"
-                    } else {
-                        bat "docker compose -f %COMPOSE_FILE% up -d --build"
-                        bat "timeout /t 20 /nobreak"
-                    }
-                }
+                bat 'docker compose -f %COMPOSE_FILE% up -d --build'
+                sleep time: 20, unit: 'SECONDS'
             }
         }
 
