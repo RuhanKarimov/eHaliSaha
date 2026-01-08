@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class Scenario01OwnerLoginTestE2E extends BaseE2ETestE2E {
+public class Scenario01OwnerLoginE2E extends BaseE2ETestE2E {
 
     @Test
     void ownerCanLoginAndSeeOwnerPanel() {
