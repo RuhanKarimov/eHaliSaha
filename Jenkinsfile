@@ -80,59 +80,57 @@ pipeline {
 
         stage('5-Run System on Docker') {
             steps {
-                bat '''docker compose -f %COMPOSE_FILE% up -d --build'''
-    // Selenium Grid hazır mı?
-    bat '''
-      powershell -NoProfile -Command ^
-        "for($i=0;$i -lt 60;$i++){ ^
-            try { ^
-              $r = Invoke-WebRequest http://localhost:14444/status -UseBasicParsing; ^
-              if($r.StatusCode -eq 200){ Write-Host 'Grid ready'; exit 0 } ^
-            } catch {} ^
-            Start-Sleep 2 ^
-         }; ^
-         Write-Host 'Grid NOT ready'; exit 1"
-    '''
-    // App hazır mı? (host üzerinden 18080)
-    bat '''
-      powershell -NoProfile -Command ^
-        "for($i=0;$i -lt 90;$i++){ ^
-            try { ^
-              $r = Invoke-WebRequest http://localhost:18080/ui/login.html?role=OWNER -UseBasicParsing; ^
-              if($r.StatusCode -eq 200){ Write-Host 'App ready'; exit 0 } ^
-            } catch {} ^
-            Start-Sleep 2 ^
-         }; ^
-         Write-Host 'App NOT ready'; exit 1"
-    '''
-  }
+                bat 'docker compose -f %COMPOSE_FILE% up -d --build'
+
+        // 1) Selenium Grid ready bekle (host -> localhost:14444/status)
+        bat '''
+powershell -NoProfile -Command ^
+  "for($i=0;$i -lt 60;$i++){ ^
+     try { ^
+       $r=Invoke-WebRequest http://localhost:14444/status -UseBasicParsing -TimeoutSec 2; ^
+       if($r.StatusCode -eq 200){ Write-Host 'Grid ready'; break } ^
+     } catch {} ^
+     Start-Sleep 2 ^
+   }"
+'''
+
+        // 2) App ready bekle (host -> localhost:18080)
+        //    (18080 senin docker-compose.ci.yml'deki ports mapping)
+        bat '''
+powershell -NoProfile -Command ^
+  "for($i=0;$i -lt 90;$i++){ ^
+     try { ^
+       $r=Invoke-WebRequest http://localhost:18080/api/public/ping -UseBasicParsing -TimeoutSec 2; ^
+       if($r.StatusCode -eq 200){ Write-Host 'App ready on host:18080'; exit 0 } ^
+     } catch {} ^
+     Start-Sleep 2 ^
+   } ^
+   Write-Host 'App not ready (host:18080)'; exit 1"
+'''
+    }
 }
 
 
 
         stage('5.5-Smoke: Selenium -> App network check') {
             steps {
-                bat '''
-      docker compose -f %COMPOSE_FILE% ps
+                // Compose iç network: selenium container -> http://app:8080
+        bat '''
+docker compose -f %COMPOSE_FILE% ps
 
-      docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc "
-        echo '[inside selenium] trying http://app:8080 ...';
-        i=0;
-        until curl -sSf http://app:8080/ui/login.html?role=OWNER >/dev/null 2>&1; do
-          i=$(expr $i + 1);
-          if [ $i -ge 60 ]; then
-            echo 'FAIL: cannot reach app:8080 from selenium (waited 120s)';
-            exit 1;
-          fi;
-          echo waiting... attempt=$i;
-          sleep 2;
-        done;
-        echo 'OK: selenium can reach app';
-        curl -I http://app:8080/ui/login.html?role=OWNER | head -n 20
-      "
-    '''
-  }
+powershell -NoProfile -Command ^
+  "for($i=0;$i -lt 90;$i++){ ^
+     $cmd = 'docker compose -f %COMPOSE_FILE% exec -T selenium bash -lc \"curl -fsS -o /dev/null -w `\"HTTP:%{http_code}`\" http://app:8080/api/public/ping\"'; ^
+     $out = cmd /c $cmd 2^>^&1; ^
+     Write-Host $out; ^
+     if($out -match 'HTTP:200'){ Write-Host 'Selenium can reach app:8080'; exit 0 } ^
+     Start-Sleep 2 ^
+   } ^
+   Write-Host 'Selenium cannot reach app:8080'; exit 1"
+'''
+    }
 }
+
 
 
 
