@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = com.ornek.ehalisaha.ehalisahabackend.EHalisahaApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 class MembershipFlowIT {
 
@@ -38,7 +38,8 @@ class MembershipFlowIT {
     }
 
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper om;
+    private final ObjectMapper om = new ObjectMapper();
+
 
     @Test
     void membershipRequest_shouldBeVisibleInStatus_andDuplicateShouldConflict() throws Exception {

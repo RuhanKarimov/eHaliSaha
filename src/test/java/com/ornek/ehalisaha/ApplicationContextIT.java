@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @Disabled("Covered by ReservationFlowIT (Testcontainers). Kept only as example.")
-@SpringBootTest
+@SpringBootTest(classes = com.ornek.ehalisaha.ehalisahabackend.EHalisahaApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ApplicationContextIT {
 
     @Test
