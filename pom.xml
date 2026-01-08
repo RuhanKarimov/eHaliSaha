@@ -150,12 +150,8 @@
             <version>${selenium.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-test-autoconfigure</artifactId>
-            <version>3.4.3</version>
-            <scope>test</scope>
-        </dependency>
+
+
     </dependencies>
 
     <build>
@@ -247,9 +243,12 @@
         <profile>
             <id>e2e</id>
             <properties>
-                <!-- When running E2E, skip Unit and IT stages -->
                 <skipUnitTests>true</skipUnitTests>
                 <skipITs>true</skipITs>
+
+                <!-- DEFAULTS: hiçbir şey vermezsen bile çalışsın -->
+                <e2e.baseUrl>http://localhost:18080</e2e.baseUrl>
+                <e2e.seleniumUrl>http://localhost:14444/wd/hub</e2e.seleniumUrl>
             </properties>
             <build>
                 <plugins>
@@ -257,10 +256,10 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <version>${maven.surefire.version}</version>
-                        <!-- Override the default surefire config -->
                         <configuration combine.self="override">
                             <skipTests>false</skipTests>
                             <reportsDirectory>${project.basedir}/e2e-reports</reportsDirectory>
+
                             <includes>
                                 <include>**/*E2E*.java</include>
                             </includes>
@@ -270,10 +269,9 @@
                                 <exclude>**/*Tests.java</exclude>
                             </excludes>
 
-                            <!-- Pass URLs to tests (BaseE2E reads env vars) -->
                             <systemPropertyVariables>
-                                <BASE_URL>${env.BASE_URL}</BASE_URL>
-                                <SELENIUM_URL>${env.SELENIUM_URL}</SELENIUM_URL>
+                                <BASE_URL>${e2e.baseUrl}</BASE_URL>
+                                <SELENIUM_URL>${e2e.seleniumUrl}</SELENIUM_URL>
                             </systemPropertyVariables>
                         </configuration>
                     </plugin>
