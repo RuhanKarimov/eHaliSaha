@@ -21,6 +21,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ehalisaha
       SPRING_DATASOURCE_PASSWORD: ehalisaha
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: 8080
     depends_on:
       db:
         condition: service_healthy

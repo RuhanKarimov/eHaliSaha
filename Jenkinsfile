@@ -89,6 +89,8 @@ pipeline {
         stage('5.5-Smoke: Selenium -> App network check') {
             steps {
                 script {
+                    docker compose -f %COMPOSE_FILE% exec -T app sh -lc "apk add --no-cache net-tools >/dev/null 2>&1 || true; netstat -tulpn | grep 8080 || ss -lntp | grep 8080 || true"
+                    
                     if (isUnix()) {
                         sh """
                           docker compose -f ${env.COMPOSE_FILE} ps
