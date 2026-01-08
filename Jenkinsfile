@@ -80,34 +80,51 @@ pipeline {
 
         stage('5-Run System on Docker') {
             steps {
-                bat 'docker compose -f %COMPOSE_FILE% up -d --build'
-                bat 'powershell -NoProfile -Command "for($i=0;$i -lt 30;$i++){ try { $r=Invoke-WebRequest http://localhost:14444/status -UseBasicParsing; if($r.StatusCode -eq 200){Write-Host \\"Grid ready\\"; exit 0} } catch{} Start-Sleep 2 }; exit 1"'
-                sleep time: 5, unit: 'SECONDS'
+                bat """
+                    docker compose -f %COMPOSE_FILE% up -d --build
+                    docker compose -f %COMPOSE_FILE% ps
+
+                    REM Wait until Selenium Grid is ready (on host port 14444)
+                    powershell -NoProfile -Command ^
+                    "for($i=0;$i -lt 60;$i++){ ^
+                        try { ^
+                            $r = Invoke-WebRequest http://localhost:14444/status -UseBasicParsing -TimeoutSec 2; ^
+                            if($r.StatusCode -eq 200 -and $r.Content -match 'ready' -and $r.Content -match 'true'){ ^
+                            Write-Host 'Grid ready'; exit 0 ^
+                            } ^
+                        } catch {} ^
+                        Start-Sleep 2 ^
+                        }; ^
+                        Write-Host 'Grid not ready in time'; exit 1"
+                """
             }
         }
 
-        stage('5.5-Smoke: Selenium -> App network check') {
+
+        stage('5.5-Smoke: Selenium -> App ready check') {
             steps {
-                script {
+                bat '''
+                    docker compose -f %COMPOSE_FILE% ps
 
-                    if (isUnix()) {
-                        sh """
-                          docker compose -f %COMPOSE_FILE% exec -T app sh -lc "apk add --no-cache net-tools >/dev/null 2>&1 || true; netstat -tulpn | grep 8080 || ss -lntp | grep 8080 || true"
-
-                          docker compose -f ${env.COMPOSE_FILE} ps
-                          docker compose -f ${env.COMPOSE_FILE} exec -T selenium sh -lc 'apk add --no-cache curl >/dev/null 2>&1 || true; echo BASE_URL=${env.BASE_URL}; curl -I ${env.BASE_URL}/ui/login.html?role=OWNER'
-                        """
-                    } else {
-                        bat """
-                          docker compose -f %COMPOSE_FILE% exec -T app sh -lc "apk add --no-cache net-tools >/dev/null 2>&1 || true; netstat -tulpn | grep 8080 || ss -lntp | grep 8080 || true"
-
-                          docker compose -f %COMPOSE_FILE% ps
-                          docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc "apk add --no-cache curl > /dev/null 2>&1 || true; echo BASE_URL=%BASE_URL%; curl -I %BASE_URL%/ui/login.html?role=OWNER"
-                        """
-                    }
-                }
+                    docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc " \
+                    i=0; \
+                    until curl -sSf http://app:8080/ui/login.html?role=OWNER >/dev/null 2>&1; do \
+                    i=$(expr $i + 1); \
+                    if [ $i -ge 60 ]; then \
+                        echo 'App not reachable from selenium after 120s'; \
+                        exit 1; \
+                    fi; \
+                    echo waiting app... attempt=$i; \
+                    sleep 2; \
+                    done; \
+                    echo 'OK: selenium can reach app'; \
+                    curl -I http://app:8080/ui/login.html?role=OWNER | head -n 20 \
+                    "
+                '''
             }
         }
+
+
 
 
 
