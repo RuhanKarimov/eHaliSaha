@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Üye Paneli | eHalisaha</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/ui/app.css"/>
+</head>
+
+<body class="eh-app min-h-screen">
+<div class="max-w-6xl mx-auto px-6 py-10">
+
+    <!-- TOP BAR -->
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+        <a href="/ui/index.html" class="brand">
+      <span class="logoMark" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M4 14.5V9.5C4 8.4 4.9 7.5 6 7.5H18C19.1 7.5 20 8.4 20 9.5V14.5" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M7 14.5V16.5M17 14.5V16.5" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M6 16.5H18" stroke="rgba(255,255,255,.85)" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </span>
+            <span class="text-xl">eHalisaha</span>
+            <span class="badge badge-green">Üye</span>
+        </a>
+
+        <div class="flex items-center gap-3">
+            <span id="mePill" class="badge hidden"></span>
+            <button type="button"
+                    class="btn btn-ghost"
+                    onclick="EH.logout ? EH.logout() : (EH.API.clearAuth(), location.href='/ui/choose-role.html')">
+                Çıkış
+            </button>
+            <a class="btn btn-secondary" href="/swagger-ui.html" title="API dokümantasyonu">
+                Swagger
+            </a>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="mt-8 grid lg:grid-cols-3 gap-6">
+
+        <!-- LEFT: Reservation -->
+        <div class="lg:col-span-2 p-6 rounded-3xl glass shadow-soft">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-2xl font-extrabold tracking-tight">Rezervasyon</h2>
+                    <p class="mt-1 text-sm" style="color:var(--muted)">
+                        Boş slotu seç, oyuncuları yaz, tek tıkla rezervasyon.
+                    </p>
+                </div>
+                <span class="badge">Europe/Istanbul</span>
+            </div>
+
+            <!-- Summary tiles -->
+            <div class="mt-5 grid md:grid-cols-3 gap-3">
+                <div class="card tile p-4">
+                    <div class="tileHead">
+                        <div class="tileIcon" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <path d="M7 10h10M7 14h6" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round"/>
+                                <path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" stroke="rgba(255,255,255,.65)" stroke-width="1.6"/>
+                            </svg>
+                        </div>
+                        <div class="text-xs" style="color:var(--muted2)">Seçim</div>
+                    </div>
+                    <div id="summaryLine" class="mt-2 text-lg font-extrabold tracking-tight">Henüz seçim yok</div>
+                    <div id="summarySub" class="mt-1 text-sm" style="color:var(--muted)"></div>
+                </div>
+
+                <div class="card tile p-4">
+                    <div class="tileHead">
+                        <div class="tileIcon" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 7v5l3 2" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round"/>
+                                <path d="M12 21a9 9 0 1 0-9-9 9 9 0 0 0 9 9z" stroke="rgba(255,255,255,.65)" stroke-width="1.6"/>
+                            </svg>
+                        </div>
+                        <div class="text-xs" style="color:var(--muted2)">Süre</div>
+                    </div>
+                    <div id="sumMinutes" class="mt-2 text-3xl font-extrabold tracking-tight">60 dk</div>
+                    <div class="mt-1 text-xs" style="color:var(--muted2)">Sabit, tek seçenek</div>
+                </div>
+
+                <div class="card tile p-4">
+                    <div class="tileHead">
+                        <div class="tileIcon" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 1v22" stroke="rgba(255,255,255,.25)" stroke-width="1.6" stroke-linecap="round"/>
+                                <path d="M17 6.5c0-2-2.2-3.5-5-3.5S7 4.5 7 6.5 9.2 10 12 10s5 1.5 5 3.5S14.8 17 12 17s-5-1.5-5-3.5" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="text-xs" style="color:var(--muted2)">Fiyat</div>
+                    </div>
+                    <div id="sumPrice" class="mt-2 text-3xl font-extrabold tracking-tight">-</div>
+                    <div id="sumPay" class="mt-1 text-sm" style="color:var(--muted)"></div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="mt-6 grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm" style="color:var(--muted)">Halısaha</label>
+                    <select id="facilitySel" class="input mt-2"></select>
+                </div>
+
+                <div>
+                    <label class="text-sm" style="color:var(--muted)">Saha (Pitch)</label>
+                    <select id="pitchSel" class="input mt-2"></select>
+                </div>
+
+                <div>
+                    <label class="text-sm" style="color:var(--muted)">Tarih</label>
+                    <input id="dateSel" type="date" class="input mt-2">
+                </div>
+
+                <div>
+                    <label class="text-sm" style="color:var(--muted)">Ödeme</label>
+                    <select id="paySel" class="input mt-2">
+                        <option value="CASH">Nakit</option>
+                        <option value="CARD">Kart</option>
+                    </select>
+                </div>
+
+                <!-- Slots -->
+                <div class="md:col-span-2">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="font-semibold">Saatler</div>
+                            <div class="text-xs mt-1" style="color:var(--muted2)">Boş slotu seçebilirsin. Dolu / kapalı tıklanamaz.</div>
+                        </div>
+                        <span id="slotLegend" class="badge badge-green">Boş = seçilebilir</span>
+                    </div>
+
+                    <div id="slotGrid" class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+                </div>
+
+                <div>
+                    <label class="text-sm" style="color:var(--muted)">Servis (minibüs)</label>
+                    <select id="shuttleSel" class="input mt-2">
+                        <option value="NO">İstemiyorum</option>
+                        <option value="YES">İstiyorum</option>
+                    </select>
+                </div>
+
+                <div class="flex items-end gap-3">
+                    <button type="button" id="btnMembership" class="btn btn-ghost w-full">
+                        Üyelik isteği
+                    </button>
+                    <button type="button" id="btnReserve" class="btn btn-primary w-full">
+                        Rezervasyon
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-7 hr-soft"></div>
+
+            <!-- Players -->
+            <div class="mt-7">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <div class="text-lg font-extrabold tracking-tight">Oyuncular</div>
+                        <div class="text-sm mt-1" style="color:var(--muted)">En az 1 oyuncu zorunlu.</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn btn-ghost" id="btnAddPlayer">+ Oyuncu ekle</button>
+                        <button type="button" class="btn btn-ghost" id="btnFillPlayers">Örnek doldur</button>
+                    </div>
+                </div>
+
+                <div id="playersBox" class="mt-4 space-y-2"></div>
+            </div>
+
+            <!-- Notice (memberOut still used by JS) -->
+            <div class="mt-6 notice">
+                <div class="noticeHead">
+                    <div class="noticeTitle">
+                        <span class="badge badge-green">Bildirim</span>
+                        <span class="text-sm" style="color:var(--muted)">Sistem mesajları</span>
+                    </div>
+                    <span class="text-xs" style="color:var(--muted2)">İpucu: Slot seçmeden rezervasyon olmaz.</span>
+                </div>
+                <!-- ✅ ID aynı: member.js buraya yazıyor -->
+                <div id="memberOut" class="noticeBody">Hazır ✅ Slot seçip rezervasyon yapabilirsin.</div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT: Videos -->
+        <div class="p-6 rounded-3xl glass shadow-soft">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-2xl font-extrabold tracking-tight">Maç Videolarım</h2>
+                    <p class="mt-1 text-sm" style="color:var(--muted)">
+                        Maç bitince scheduler otomatik yayınlar.
+                    </p>
+                </div>
+                <button type="button" class="btn btn-ghost" id="btnVideos">Yenile</button>
+            </div>
+
+            <div class="mt-5 space-y-3" id="videosBox">
+                <!-- JS ile doldurulacak, boşsa placeholder -->
+                <div class="videoCard">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="font-semibold">Henüz video yok</div>
+                            <div class="text-sm mt-1" style="color:var(--muted2)">Maçlardan sonra burada listelenecek.</div>
+                        </div>
+                        <span class="badge">Demo</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="/ui/eh.core.js"></script>
+<script src="/ui/eh.api.js"></script>
+<script src="/ui/eh.auth.js"></script>
+<script src="/ui/member.js?v=20260105"></script>
+<script src="/ui/member.membership-ui.js"></script>
+
+<!-- IMPORTANT:
+  member.js slot butonlarına class veriyor: slot / slot-on / slot-full
+  Bu HTML’de o class’lar aynen çalışıyor.
+-->
+</body>
+</html>

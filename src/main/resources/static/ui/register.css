@@ -1,0 +1,119 @@
+/* =========================================================
+   Register Page (uses login.css theme)
+   - login'deki yeşil glow + glass + btn efektleri aynı dursun
+   - register.css: sadece sayfaya özel ayarlar + contrast fix
+   ========================================================= */
+
+/* login.css'teki RGB var'larını register sayfasında normalize et
+   (space yerine virgül -> rgba(var(--x), .2) kesin çalışsın) */
+.eh-register{
+    --emerald-300: 110, 231, 183;
+    --emerald-500: 0, 87, 4;
+    --teal-400: 45, 212, 191;
+
+    --neutral-950: 10, 10, 10;
+    --neutral-900: 23, 23, 23;
+    --neutral-800: 38, 38, 38;
+}
+
+/* tek kart, ortada */
+.eh-register .registerWrap{
+    max-width: 560px;
+    padding-top: 28px;
+    padding-bottom: 28px;
+}
+
+.eh-register .topbar{
+    margin-bottom: 18px;
+}
+
+.eh-register .brandText{
+    display:flex;
+    flex-direction:column;
+    line-height:1.05;
+}
+
+/* TopActions border görünür olsun (emerald arka plana gömülmesin) */
+.eh-register .topActions{
+    border: 1px solid rgba(236,253,245,.20);
+    box-shadow:
+            0 10px 30px rgba(0,0,0,.26),
+            inset 0 1px 0 rgba(236,253,245,.06),
+            0 0 0 1px rgba(var(--teal-400), .45);
+}
+.eh-register .topActions:hover{
+    border-color: rgba(236,253,245,.28);
+    box-shadow:
+            0 14px 38px rgba(0,0,0,.30),
+            inset 0 1px 0 rgba(236,253,245,.08),
+            0 0 0 1px rgba(var(--teal-400), .62);
+}
+
+/* Select: sağ ok + padding */
+.selectWrap{ position: relative; }
+.selectInput{
+    appearance:none;
+    -webkit-appearance:none;
+    padding-right: 46px !important;
+}
+.selectChevron{
+    position:absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events:none;
+    opacity:.9;
+}
+
+/* Primary disabled */
+.btn-primary:disabled{
+    opacity: .58 !important;
+    cursor: not-allowed;
+    transform: none !important;
+    filter: none !important;
+}
+
+/* Sol üst "Kayıt" etiketi: görüntü gibi, tıklanınca login'e gider */
+.regTag{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    text-decoration: none;
+
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .2px;
+
+    color: rgba(236,253,245,.92);
+    background: rgba(10,10,10,.34);
+    border: 1px solid rgba(236,253,245,.18);
+
+    box-shadow:
+            0 8px 22px rgba(0,0,0,.22),
+            inset 0 1px 0 rgba(236,253,245,.06),
+            0 0 0 1px rgba(var(--teal-400), .32);
+
+    transition:
+            transform 180ms var(--easeOut),
+            box-shadow 180ms var(--easeOut),
+            border-color 180ms var(--easeOut),
+            filter 180ms var(--easeOut);
+}
+
+.regTag:hover{
+    transform: translateY(-1px);
+    filter: saturate(1.08) brightness(1.05);
+    border-color: rgba(236,253,245,.24);
+
+    box-shadow:
+            0 12px 30px rgba(0,0,0,.28),
+            inset 0 1px 0 rgba(236,253,245,.08),
+            0 0 0 1px rgba(var(--teal-400), .48);
+}
+
+.regTag:active{
+    transform: translateY(0) scale(.99);
+}

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>eHalisaha</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/ui/app.css"/>
+</head>
+
+<body class="eh-app min-h-screen">
+<div class="max-w-6xl mx-auto px-6 py-10">
+
+    <!-- Top bar -->
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+        <a href="/ui/index.html" class="text-xl font-bold tracking-tight">eHalisaha</a>
+        <div class="flex gap-3">
+            <a class="btn btn-ghost" href="/ui/choose-role.html">Giriş</a>
+            <a class="btn btn-secondary" href="/swagger-ui.html">Swagger</a>
+        </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="mt-12 grid lg:grid-cols-2 gap-10 items-center">
+        <div>
+            <div class="badge">
+                ✅ üyelik onayı <span class="opacity-40">•</span> ✅ çakışma engeli <span class="opacity-40">•</span> ✅ video otomasyonu
+            </div>
+
+            <h1 class="mt-6 text-5xl font-extrabold leading-tight">
+                Halısaha rezervasyonu,
+                <span class="text-indigo-300">düzgün kural</span> ile.
+            </h1>
+
+            <p class="mt-5 text-lg soft">
+                Member: önce üyelik isteği, sonra slot seç, süreyi katla, istersen servis iste.
+                Owner: facility/pitch yönet, fiyat gir, üyelikleri onayla, slotları tanımla.
+            </p>
+
+            <!-- Quick actions -->
+            <div class="mt-7 flex flex-wrap gap-3">
+                <a href="/ui/choose-role.html" class="btn btn-primary shadow-soft">Hemen başla</a>
+                <a href="/ui/login.html?role=MEMBER" class="btn btn-ghost">Member girişi</a>
+                <a href="/ui/login.html?role=OWNER" class="btn btn-ghost">Owner girişi</a>
+            </div>
+
+            <!-- Demo + keyboard hints -->
+            <div class="mt-6 card p-5">
+                <div class="flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                        <div class="text-sm muted">Demo hesaplar</div>
+                        <div class="mt-2 text-sm">
+                            <span class="mono">owner1/owner123</span>
+                            <span class="opacity-40">•</span>
+                            <span class="mono">member1/member123</span>
+                        </div>
+                    </div>
+                    <div class="text-xs muted">
+                        İpucu: <span class="kbd">Enter</span> ile login, <span class="kbd">Esc</span> ile temizle
+                    </div>
+                </div>
+
+                <div class="mt-4 flex flex-wrap gap-3">
+                    <button class="btn btn-ghost" id="btnCopyOwner">Owner kopyala</button>
+                    <button class="btn btn-ghost" id="btnCopyMember">Member kopyala</button>
+                    <button class="btn btn-ghost" id="btnGoRole">Rol seçimine git</button>
+                </div>
+
+                <div id="copyOut" class="mt-3 text-sm muted"></div>
+            </div>
+        </div>
+
+        <!-- Right: System summary -->
+        <div class="p-7 rounded-3xl glass shadow-soft">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <div class="text-sm opacity-80">Sistem özeti</div>
+                    <div class="mt-2 text-2xl font-bold">Akış, güvenlik, otomasyon</div>
+                    <div class="mt-2 text-sm muted">
+                        Kısa: rol seç, login, doğru panel. Uzun: üyelik onayıyla fake rezervasyon biter.
+                    </div>
+                </div>
+                <span class="badge">v1 demo</span>
+            </div>
+
+            <div class="mt-5 grid grid-cols-2 gap-3">
+                <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <div class="text-2xl font-bold">Role</div>
+                    <div class="opacity-70 text-sm">Guard + yönlendirme</div>
+                </div>
+                <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <div class="text-2xl font-bold">Slots</div>
+                    <div class="opacity-70 text-sm">Owner tanımlar, member seçer</div>
+                </div>
+                <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <div class="text-2xl font-bold">DB</div>
+                    <div class="opacity-70 text-sm">Overlap koruması</div>
+                </div>
+                <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <div class="text-2xl font-bold">Video</div>
+                    <div class="opacity-70 text-sm">Scheduler otomatik</div>
+                </div>
+            </div>
+
+            <div class="mt-6 hr-soft"></div>
+
+            <div class="mt-4 text-sm soft">
+                “Popup Basic Auth” yok: login ekranında auth saklanır, istekler header ile gider.
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-3">
+                <a class="btn btn-ghost" href="/ui/choose-role.html">Rol seç</a>
+                <a class="btn btn-ghost" href="/ui/member.html">Üye paneli</a>
+                <a class="btn btn-ghost" href="/ui/owner.html">Owner paneli</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/ui/app.js"></script>
+<script>
+    // minimal toast fallback
+    if (!window.EH) window.EH = {};
+    if (!EH.toast) EH.toast = (m,t)=>console.log(t||"info",m);
+
+    const out = document.getElementById("copyOut");
+    const btnOwner = document.getElementById("btnCopyOwner");
+    const btnMember = document.getElementById("btnCopyMember");
+    const btnGoRole = document.getElementById("btnGoRole");
+
+    async function copy(text){
+        try{
+            await navigator.clipboard.writeText(text);
+            out.textContent = "Kopyalandı ✅";
+            EH.toast("Kopyalandı ✅","ok");
+        }catch(e){
+            out.textContent = "Kopyalama başarısız. Tarayıcı izin vermedi.";
+            EH.toast("Kopyalama başarısız","err");
+        }
+    }
+
+    btnOwner.addEventListener("click", ()=>copy("owner1/owner123"));
+    btnMember.addEventListener("click", ()=>copy("member1/member123"));
+    btnGoRole.addEventListener("click", ()=>location.href="/ui/choose-role.html");
+
+    // küçük keyboard UX
+    document.addEventListener("keydown",(e)=>{
+        if (e.key.toLowerCase()==="o") location.href="/ui/login.html?role=OWNER";
+        if (e.key.toLowerCase()==="m") location.href="/ui/login.html?role=MEMBER";
+    });
+</script>
+</body>
+</html>
+

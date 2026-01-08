@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <link rel="icon" href="data:,">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Giriş | eHalisaha</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/ui/app.css"/>
+  <link rel="stylesheet" href="login.css"/>
+</head>
+
+<body class="eh-login">
+<!-- background layers -->
+<div class="eh-bg" aria-hidden="true"></div>
+<div class="eh-vignette" aria-hidden="true"></div>
+<div class="eh-lines" aria-hidden="true"></div>
+
+<div class="eh-lights" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+
+<div class="eh-noise" aria-hidden="true"></div>
+
+<div class="wrap">
+  <!-- top bar -->
+  <div class="topbar anim delay1">
+    <a href="/ui/index.html" class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2l8 4v6c0 5-3 9-8 10C7 21 4 17 4 12V6l8-4Z" stroke="rgba(110,231,183,.92)" stroke-width="1.7"/>
+            <path d="M12 6v14" stroke="rgba(110,231,183,.32)" stroke-width="1.7"/>
+            <path d="M8 12h8" stroke="rgba(45,212,191,.28)" stroke-width="1.7"/>
+          </svg>
+        </span>
+
+      <span class="brandTitle">eHalisaha</span>
+      <span id="pill" class="chip">Giriş</span>
+    </a>
+
+    <div class="topActions">
+      <a href="/ui/choose-role.html" class="btn-ghost">Rol değiştir</a>
+      <a href="/ui/register.html" class="btn-ghost btn-ghost-accent">Kayıt ol</a>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- left -->
+    <div class="glass pad anim delay2">
+      <div class="chips">
+        <span class="chip">⚽ Stadyum modu</span>
+        <span class="chip chip-teal">Güvenli giriş</span>
+      </div>
+
+      <h1 class="hero">
+        Giriş yap,
+        <span id="roleAccent" class="accentText">maç moduna geç</span>.
+      </h1>
+
+      <p id="roleDesc" class="lead">
+        Hesabını doğrula, rolüne göre doğru panele düş.
+      </p>
+
+      <div class="hr"></div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="t">Akış</div>
+          <div class="v">Rol → Giriş → Panel</div>
+        </div>
+        <div class="stat">
+          <div class="t">Tema</div>
+          <div class="v">Emerald + Teal</div>
+        </div>
+        <div class="stat">
+          <div class="t">Rezervasyon</div>
+          <div class="v">Kurallı, net</div>
+        </div>
+      </div>
+
+      <div class="hint">
+        Hesabın yok mu? <a class="link" href="/ui/register.html">Kayıt ol</a>
+        <span class="dot">•</span>
+        Takıldın mı? <a class="link" href="/swagger-ui.html">Swagger</a>
+      </div>
+    </div>
+
+    <!-- right -->
+    <div class="glass pad anim delay3">
+      <div class="formHead">
+        <div>
+          <h2 id="title" class="formTitle">Giriş</h2>
+          <p id="desc" class="formDesc">Kullanıcı adı ve şifreni gir.</p>
+        </div>
+
+        <button id="togglePwd" type="button" class="miniBtn" title="Şifreyi göster/gizle">
+          Şifre
+        </button>
+      </div>
+
+      <div class="form">
+        <div>
+          <label class="label">Kullanıcı adı</label>
+          <input id="u" class="input" placeholder="örnek: ruhan01" autocomplete="username" />
+        </div>
+
+        <div>
+          <label class="label">Şifre</label>
+          <input id="p" class="input" placeholder="••••••••" type="password" autocomplete="current-password" />
+          <div class="hint2">Enter: giriş • Esc: temizle</div>
+        </div>
+
+        <button id="btn" type="button" class="btn-primary">
+          <span>Giriş yap</span><span class="arrow">→</span>
+        </button>
+
+        <!-- login.js patlamasın diye ID var ama görünmez -->
+        <button id="btnDemo" type="button" class="hidden">demo</button>
+
+        <div class="hr"></div>
+
+        <div class="statusRow">
+          <div class="statusText">Durum: <span>Kimlik doğrulama</span></div>
+          <div id="statusPill" class="chip" style="opacity:0">...</div>
+        </div>
+
+        <div id="out" class="out"></div>
+
+        <div class="hint">
+          Rol yanlışsa: <a class="link" href="/ui/choose-role.html">Rol seç</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- existing scripts -->
+<script src="/ui/eh.core.js"></script>
+<script src="/ui/eh.api.js"></script>
+<script src="/ui/eh.auth.js"></script>
+<script src="/ui/login.js"></script>
+
+<script>
+  requestAnimationFrame(()=>document.body.classList.add("loaded"));
+
+  // Password toggle
+  (function(){
+    const t = document.getElementById("togglePwd");
+    const p = document.getElementById("p");
+    if (!t || !p) return;
+    let shown = false;
+    t.addEventListener("click", ()=>{
+      shown = !shown;
+      p.type = shown ? "text" : "password";
+      t.textContent = shown ? "Gizle" : "Şifre";
+    });
+  })();
+
+  // Button spotlight
+  (function(){
+    const btn = document.getElementById("btn");
+    if (!btn) return;
+    btn.addEventListener("mousemove", (e)=>{
+      const r = btn.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) * 100;
+      const y = ((e.clientY - r.top) / r.height) * 100;
+      btn.style.setProperty("--mx", x + "%");
+      btn.style.setProperty("--my", y + "%");
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!-- /ui/owner-reservations.html -->
+<!doctype html>
+<html lang="tr">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Owner • Rezervasyonlar | eHalisaha</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/ui/app.css"/>
+</head>
+
+<body class="eh-app min-h-screen">
+<div class="max-w-6xl mx-auto px-6 py-10">
+
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+        <a href="/ui/index.html" class="text-xl font-bold tracking-tight">eHalisaha</a>
+
+        <div class="flex items-center gap-3">
+            <a class="btn btn-ghost" href="/ui/owner.html">Owner Panel</a>
+            <button class="btn btn-ghost" onclick="EH.API.clearAuth(); location.href='/ui/choose-role.html'">Çıkış</button>
+            <a class="btn btn-secondary" href="/swagger-ui.html">Swagger</a>
+        </div>
+    </div>
+
+    <div class="mt-8 p-6 rounded-3xl glass shadow-soft">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+                <h2 class="text-xl font-bold">Rezervasyonlar</h2>
+                <p class="mt-1 text-sm opacity-70">
+                    Yeni rezervasyon varsa otomatik doğru güne “zıplar”. Günlere göre listelenir, haftalık sayfalara bölünür.
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="badge" id="countPill">0</span>
+                <span class="pill opacity-80" id="newPill" title="Bu sayfayı ilk açtığın anda yeni sayılanlar">0 yeni</span>
+            </div>
+        </div>
+
+        <div class="mt-5 grid md:grid-cols-3 gap-4">
+            <div>
+                <label class="text-sm opacity-70">Facility</label>
+                <select id="facilitySel" class="input mt-2"></select>
+            </div>
+            <div>
+                <label class="text-sm opacity-70">Pitch</label>
+                <select id="pitchSel" class="input mt-2">
+                    <option value="">(Hepsi)</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-sm opacity-70">Tarih (hızlı atla)</label>
+                <input id="dateSel" type="date" class="input mt-2"/>
+            </div>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button class="btn btn-primary" id="btnRefresh">Yenile</button>
+            <button class="btn btn-ghost" id="btnToday">Bugün</button>
+
+            <span class="hr-soft flex-1 hidden md:block"></span>
+
+            <div class="flex items-center gap-2">
+                <button class="btn btn-ghost" id="btnPrevPage">←</button>
+                <div class="badge" id="rangeLabel">-</div>
+                <button class="btn btn-ghost" id="btnNextPage">→</button>
+            </div>
+        </div>
+
+        <div class="mt-5 grid lg:grid-cols-12 gap-6">
+            <aside class="lg:col-span-4">
+                <div class="text-sm opacity-70">Günler</div>
+                <div id="dayList" class="mt-3 space-y-2"></div>
+                <div class="mt-3 text-xs opacity-70">
+                    İpucu: Yeşil küçük sayı = o günde “yeni” rezervasyon sayısı.
+                </div>
+            </aside>
+
+            <section class="lg:col-span-8">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <div id="activeDayTitle" class="text-lg font-bold">-</div>
+                        <div id="activeDaySub" class="text-sm opacity-70">-</div>
+                    </div>
+                    <div class="text-xs opacity-70">
+                        Oyuncu adına tıkla: <span class="mono">ödedi/ödemedi</span>
+                    </div>
+                </div>
+
+                <div id="listBox" class="mt-4 space-y-3"></div>
+                <div id="emptyHint" class="mt-4 text-sm opacity-70 hidden">Bu günde kayıt yok.</div>
+            </section>
+        </div>
+
+        <div class="mt-6 hr-soft"></div>
+        <pre id="resOut" class="mt-4 p-4 rounded-2xl bg-black/30 border border-white/10 text-sm overflow-auto mono"></pre>
+    </div>
+
+</div>
+
+<script src="/ui/eh.core.js?v=20260105"></script>
+<script src="/ui/eh.api.js?v=20260105"></script>
+<script src="/ui/eh.auth.js?v=20260105"></script>
+<script src="/ui/eh.time.js?v=20260105"></script>
+<script src="/ui/owner-reservations.js?v=20260106"></script>
+</body>
+</html>

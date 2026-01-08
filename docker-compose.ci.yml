@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ehalisaha
+      POSTGRES_USER: ehalisaha
+      POSTGRES_PASSWORD: ehalisaha
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ehalisaha -d ehalisaha"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - dbdata_ci:/var/lib/postgresql/data
+
+  app:
+    build: .
+    environment:
+      # Spring Boot datasource (adjust if your app uses different keys)
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/ehalisaha
+      SPRING_DATASOURCE_USERNAME: ehalisaha
+      SPRING_DATASOURCE_PASSWORD: ehalisaha
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "18080:8080"
+
+  selenium:
+    image: selenium/standalone-chrome:latest
+    shm_size: 2gb
+    ports:
+      - "14444:4444"
+    environment:
+      - SE_NODE_SESSION_TIMEOUT=300
+      - SE_NODE_MAX_SESSIONS=1
+
+volumes:
+  dbdata_ci:

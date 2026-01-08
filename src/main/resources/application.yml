@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: eHalisaha
+
+  jackson:
+    time-zone: Europe/Istanbul
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/ehalisaha
+    username: ehalisaha
+    password: ehalisaha
+
+  jpa:
+    hibernate:
+      ddl-auto: create  # development for now; change later!
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+server:
+  port: 8080
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
