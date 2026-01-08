@@ -79,5 +79,48 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
                                        @Param("afterId") Long afterId,
                                        @Param("excludedStatus") ReservationStatus excludedStatus);
 
+    @Query("""
+    select (count(r) > 0)
+    from Reservation r
+    where r.pitchId = :pitchId
+      and r.status <> :excludedStatus
+      and r.startTime < :end
+      and r.endTime > :start
+""")
+    boolean existsOverlappingForPitch(
+            @Param("pitchId") Long pitchId,
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("excludedStatus") ReservationStatus excludedStatus
+    );
+    @Query("""
+    select (count(r) > 0)
+    from Reservation r
+    where r.pitchId = :pitchId
+      and r.status in :activeStatuses
+      and r.startTime < :end
+      and r.endTime > :start
+""")
+    boolean existsOverlappingForPitchWithStatuses(
+            @Param("pitchId") Long pitchId,
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("activeStatuses") List<ReservationStatus> activeStatuses
+    );
+
+    @Query("""
+    select count(r)
+    from Reservation r
+    where r.pitchId = :pitchId
+      and r.status <> :excludedStatus
+      and r.startTime < :end
+      and r.endTime > :start
+""")
+    long countOverlappingForPitch(
+            @Param("pitchId") Long pitchId,
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("excludedStatus") ReservationStatus excludedStatus
+    );
 
 }

@@ -2,6 +2,7 @@ package com.ornek.ehalisaha.ehalisahabackend.service;
 
 import com.ornek.ehalisaha.ehalisahabackend.domain.entity.*;
 import com.ornek.ehalisaha.ehalisahabackend.domain.enums.MembershipStatus;
+import com.ornek.ehalisaha.ehalisahabackend.domain.enums.PaymentMethod;
 import com.ornek.ehalisaha.ehalisahabackend.domain.enums.PaymentStatus;
 import com.ornek.ehalisaha.ehalisahabackend.domain.enums.ReservationStatus;
 import com.ornek.ehalisaha.ehalisahabackend.dto.ReservationCreateRequest;
@@ -86,6 +87,18 @@ public class ReservationService {
 
         Instant end = req.startTime().plus(minutes, ChronoUnit.MINUTES);
 
+        // ✅ BACKEND OVERLAP CHECK (UI değil, kural burada)
+        boolean overlap = reservationRepo.existsOverlappingForPitch(
+                pitch.getId(),
+                req.startTime(),
+                end,
+                ReservationStatus.CANCELLED
+        );
+
+        if (overlap) {
+            throw new IllegalStateException("Reservation overlaps with existing reservation");
+        }
+
         Reservation r = new Reservation();
         r.setPitchId(pitch.getId());
         r.setMembershipId(mem.getId());
@@ -97,8 +110,9 @@ public class ReservationService {
 
         r.setShuttleRequested(req.shuttle() != null && req.shuttle());
 
-        if ("CARD".equals(req.paymentMethod().name())) r.setStatus(ReservationStatus.CONFIRMED);
+        if (req.paymentMethod() == PaymentMethod.CARD) r.setStatus(ReservationStatus.CONFIRMED);
         else r.setStatus(ReservationStatus.CREATED);
+
 
         Reservation saved;
         try {
@@ -121,7 +135,7 @@ public class ReservationService {
         pay.setMethod(req.paymentMethod());
         pay.setAmount(saved.getTotalPrice());
 
-        if ("CARD".equals(req.paymentMethod().name())) {
+        if (req.paymentMethod() == PaymentMethod.CARD) {
             pay.setStatus(PaymentStatus.PAID);
             pay.setPaidAt(Instant.now());
             pay.setProviderRef("SIMULATED-" + saved.getId());
