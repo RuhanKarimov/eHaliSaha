@@ -89,15 +89,18 @@ pipeline {
         stage('5.5-Smoke: Selenium -> App network check') {
             steps {
                 script {
-                    docker compose -f %COMPOSE_FILE% exec -T app sh -lc "apk add --no-cache net-tools >/dev/null 2>&1 || true; netstat -tulpn | grep 8080 || ss -lntp | grep 8080 || true"
 
                     if (isUnix()) {
                         sh """
+                          docker compose -f %COMPOSE_FILE% exec -T app sh -lc "apk add --no-cache net-tools >/dev/null 2>&1 || true; netstat -tulpn | grep 8080 || ss -lntp | grep 8080 || true"
+
                           docker compose -f ${env.COMPOSE_FILE} ps
                           docker compose -f ${env.COMPOSE_FILE} exec -T selenium sh -lc 'apk add --no-cache curl >/dev/null 2>&1 || true; echo BASE_URL=${env.BASE_URL}; curl -I ${env.BASE_URL}/ui/login.html?role=OWNER'
                         """
                     } else {
                         bat """
+                          docker compose -f %COMPOSE_FILE% exec -T app sh -lc "apk add --no-cache net-tools >/dev/null 2>&1 || true; netstat -tulpn | grep 8080 || ss -lntp | grep 8080 || true"
+
                           docker compose -f %COMPOSE_FILE% ps
                           docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc "apk add --no-cache curl > /dev/null 2>&1 || true; echo BASE_URL=%BASE_URL%; curl -I %BASE_URL%/ui/login.html?role=OWNER"
                         """
