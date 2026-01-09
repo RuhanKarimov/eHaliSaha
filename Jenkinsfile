@@ -105,16 +105,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='
             steps {
                 bat 'docker compose -f %COMPOSE_FILE% ps'
 
-    // 1) Workspace'e bir smoke.ps1 yaz (tırnak derdi biter)
-    bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command @'
+    // ✅ PowerShell scriptini Jenkins ile dosyaya yaz (CMD quoting derdi biter)
+    writeFile file: 'smoke.ps1', encoding: 'UTF-8', text: '''
 $ErrorActionPreference = "SilentlyContinue"
 $compose = $env:COMPOSE_FILE
 
 Write-Host ("Compose file: " + $compose)
 
 function ExecSelenium([string]$innerCmd) {
-  # innerCmd linux shell komutu olacak, container içinde çalışacak
   & docker compose -f $compose exec -T selenium sh -lc $innerCmd 2>&1
 }
 
@@ -143,14 +141,13 @@ if(-not $ok){
   exit 1
 }
 
-# (Opsiyonel) UI check (başarısız olsa da pipeline'ı kırmasın)
 Write-Host "[ui check] http://app:8080/ui/login.html?role=OWNER"
 ExecSelenium "curl -sS -I 'http://app:8080/ui/login.html?role=OWNER' || true" | ForEach-Object { Write-Host $_ }
 
 exit 0
-'@ | Set-Content -Encoding UTF8 smoke.ps1
 '''
-    // 2) Script'i çalıştır
+
+    // ✅ Script'i çalıştır
     bat 'powershell -NoProfile -ExecutionPolicy Bypass -File smoke.ps1'
   }
 
@@ -162,6 +159,7 @@ exit 0
     }
   }
 }
+
 
 
 
