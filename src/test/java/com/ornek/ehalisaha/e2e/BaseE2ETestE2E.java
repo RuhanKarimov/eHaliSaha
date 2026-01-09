@@ -173,63 +173,49 @@ public abstract class BaseE2ETestE2E {
     }
 
     protected void ensureFacilityExists(String name, String addr) {
-        // 0) Owner page gerçekten açık mı? (elementler gelene kadar bekle)
+        By selLoc = By.id("ownerFacilitySel");
+
+        // owner panel elementleri gelsin
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facName")));
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facAddr")));
+        wait.until(ExpectedConditions.presenceOfElementLocated(selLoc));
 
+        // 1) Zaten var mı?
+        try {
+            WebElement sel = driver.findElement(selLoc);
+            String txt = sel.getText();
+            if (txt != null && txt.contains(name)) {
+                selectByContainsText(selLoc, name);
+                return;
+            }
+        } catch (Exception ignored) {}
+
+        // 2) Yoksa oluştur
         type(By.id("facName"), name);
         type(By.id("facAddr"), addr);
 
-        // 1) Butonu daha sağlam bul ve tıkla
-        By btn = By.xpath("//button[contains(translate(normalize-space(.), " +
-                "'İIŞŞĞĞÜÜÖÖÇÇ', 'iissgguuoocc'), 'facility') and " +
-                "contains(translate(normalize-space(.), " +
-                "'İIŞŞĞĞÜÜÖÖÇÇ', 'iissgguuoocc'), 'olustur')]");
+        By btn = By.xpath(
+                "//button[" +
+                        "contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'facility')" +
+                        " and " +
+                        "contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ust')" +
+                        "]"
+        );
 
-        // click() bazen intercepted olur, garanti için scroll + js-click fallback
         WebElement button = wait.until(ExpectedConditions.elementToBeClickable(btn));
         ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", button);
-        try {
-            button.click();
-        } catch (Exception e) {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
-        }
+        try { button.click(); }
+        catch (Exception e) { ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button); }
 
-        // 2) Eğer UI’da ownerOut gibi bir mesaj alanı varsa, önce onun dolmasını beklemek çok işe yarar
-        try {
-            By out = By.id("ownerOut");
-            wait.until(d -> {
-                String t = d.findElement(out).getText();
-                return t != null && !t.isBlank();
-            });
-        } catch (Exception ignored) {
-            // ownerOut yoksa sorun değil
-        }
-
-        // 3) Dropdown'a düşmesini bekle, gerekirse refresh dene
-        By selLoc = By.id("ownerFacilitySel");
-
-        boolean found = false;
-        long end = System.currentTimeMillis() + 30000; // 30sn
-        while (System.currentTimeMillis() < end) {
+        // 3) Dropdown’da görünmesini bekle
+        wait.until(d -> {
             try {
-                WebElement sel = driver.findElement(selLoc);
-                String txt = sel.getText();
-                if (txt != null && txt.contains(name)) {
-                    found = true;
-                    break;
-                }
-            } catch (Exception ignored) { }
-
-            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
-        }
-
-        if (!found) {
-            // bazı UI'lar select'i refresh sonrası doldurur
-            driver.navigate().refresh();
-            wait.until(ExpectedConditions.presenceOfElementLocated(selLoc));
-            wait.until(d -> d.findElement(selLoc).getText() != null && d.findElement(selLoc).getText().contains(name));
-        }
+                String t = d.findElement(selLoc).getText();
+                return t != null && t.contains(name);
+            } catch (Exception e) {
+                return false;
+            }
+        });
 
         selectByContainsText(selLoc, name);
     }

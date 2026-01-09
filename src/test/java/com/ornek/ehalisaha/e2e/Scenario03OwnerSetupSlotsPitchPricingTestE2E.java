@@ -9,7 +9,8 @@ public class Scenario03OwnerSetupSlotsPitchPricingTestE2E extends BaseE2ETestE2E
     @Test
     void ownerSetsSlotsCreatesPitchAndSetsPrice() {
         loginOwner();
-        ensureFacilityExists("Arena Halısaha", "Merkez / Malatya");
+        String facilityName = "Arena-" + System.currentTimeMillis();
+        ensureFacilityExists(facilityName, "Merkez / Malatya");
         setSlotsDayAndSave();
 
         ensurePitchExists("Saha-1");

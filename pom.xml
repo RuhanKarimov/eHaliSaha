@@ -168,6 +168,7 @@
                             <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
+                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
 
@@ -249,6 +250,9 @@
                 <!-- DEFAULTS: hiçbir şey vermezsen bile çalışsın -->
                 <e2e.baseUrl>http://localhost:8080</e2e.baseUrl>
                 <e2e.seleniumUrl>http://localhost:14444/wd/hub</e2e.seleniumUrl>
+
+                <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+                <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
             </properties>
             <build>
                 <plugins>
