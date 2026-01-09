@@ -5,20 +5,13 @@ def chromeArgsCommon() {
 }
 
 def e2eEnv(String chromeArgs) {
-    // NOTE: isUnix() bir Jenkins step, bu fonksiyon runE2E içinden çağrılınca çalışır.
-  if (isUnix()) {
-        return [
-      "BASE_URL=http://app:8080",
-      "SELENIUM_URL=http://selenium:4444/wd/hub",
-      "CHROME_ARGS=${chromeArgs}"
-    ]
-  } else {
-        return [
-      "BASE_URL=http://host.docker.internal:8080",
-      "SELENIUM_URL=http://localhost:14444/wd/hub",
-      "CHROME_ARGS=${chromeArgs}"
-    ]
-  }
+    // ✅ Browser container’da -> app servisine docker network’ten eriş
+  return [
+    "BASE_URL=http://app:8080",
+    // ✅ Maven host’ta koşuyor -> selenium host portundan eriş
+    "SELENIUM_URL=http://localhost:14444/wd/hub",
+    "CHROME_ARGS=${chromeArgs}"
+  ]
 }
 
 def runE2E(String testClass) {
