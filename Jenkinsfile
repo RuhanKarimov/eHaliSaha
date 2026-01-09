@@ -11,7 +11,8 @@ pipeline {
     environment {
         COMPOSE_FILE = 'docker-compose.ci.yml'
   MVN_ARGS = '-U -B'
-  BASE_URL = 'http://host.docker.internal:8080'
+  JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
+  BASE_URL = 'http://app:8080'
   SELENIUM_URL = 'http://localhost:14444/wd/hub'
 }
 
