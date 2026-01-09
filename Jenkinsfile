@@ -84,31 +84,16 @@ pipeline {
 
         // 1) Selenium Grid ready bekle (host -> localhost:14444/status)
         bat '''
-powershell -NoProfile -Command ^
-  "for($i=0;$i -lt 60;$i++){ ^
-     try { ^
-       $r=Invoke-WebRequest http://localhost:14444/status -UseBasicParsing -TimeoutSec 2; ^
-       if($r.StatusCode -eq 200){ Write-Host 'Grid ready'; break } ^
-     } catch {} ^
-     Start-Sleep 2 ^
-   }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 60; $i++){ try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:14444/status; if($r.StatusCode -eq 200){ Write-Host 'Grid ready'; exit 0 } } catch {} ; Start-Sleep -Seconds 2 } ; Write-Host 'Grid NOT ready'; exit 1"
 '''
 
-        // 2) App ready bekle (host -> localhost:18080)
-        //    (18080 senin docker-compose.ci.yml'deki ports mapping)
+        // 2) App ready bekle (host -> localhost:18080/api/public/ping)
         bat '''
-powershell -NoProfile -Command ^
-  "for($i=0;$i -lt 90;$i++){ ^
-     try { ^
-       $r=Invoke-WebRequest http://localhost:18080/api/public/ping -UseBasicParsing -TimeoutSec 2; ^
-       if($r.StatusCode -eq 200){ Write-Host 'App ready on host:18080'; exit 0 } ^
-     } catch {} ^
-     Start-Sleep 2 ^
-   } ^
-   Write-Host 'App not ready (host:18080)'; exit 1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 90; $i++){ try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:18080/api/public/ping; if($r.StatusCode -eq 200){ Write-Host 'App ready on host:18080'; exit 0 } } catch {} ; Start-Sleep -Seconds 2 } ; Write-Host 'App not ready (host:18080)'; exit 1"
 '''
     }
 }
+
 
 
 
