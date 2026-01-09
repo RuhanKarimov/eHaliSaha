@@ -168,26 +168,24 @@ exit 0
         stage('6.1-E2E (Selenium) Scenario 1: Owner Login') {
             steps {
                 script {
-                    if (isUnix()) {
-                        withEnv([
-          "BASE_URL=${env.BASE_URL}",
-          "SELENIUM_URL=${env.SELENIUM_URL}",
-          "CHROME_ARGS=--disable-features=HttpsOnlyMode,UpgradeInsecureRequests;--ignore-certificate-errors;--allow-insecure-localhost"
-        ]) {
+                    def e2eEnv = [
+        "BASE_URL=${env.BASE_URL}",
+        "SELENIUM_URL=${env.SELENIUM_URL}",
+        // Chrome 143+: HTTPS upgrade/first-mode vb. kapat
+        "CHROME_ARGS=--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
+      ]
+
+      withEnv(e2eEnv) {
+                        if (isUnix()) {
                             sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
-        }
-      } else {
-                        withEnv([
-          "BASE_URL=${env.BASE_URL}",
-          "SELENIUM_URL=${env.SELENIUM_URL}",
-          "CHROME_ARGS=--disable-features=HttpsOnlyMode,UpgradeInsecureRequests;--ignore-certificate-errors;--allow-insecure-localhost"
-        ]) {
+        } else {
                             bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
         }
       }
     }
   }
 }
+
 
 
 
