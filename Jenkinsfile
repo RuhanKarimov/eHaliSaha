@@ -80,37 +80,25 @@ pipeline {
 
         stage('5-Run System on Docker') {
             steps {
-                bat 'docker compose -f %COMPOSE_FILE% up -d --build'
+                // Up
+    bat 'docker compose -f %COMPOSE_FILE% up -d --build'
 
-        // Selenium Grid ready (host -> localhost:14444/status)
-        bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ok=$false; ^
-   for($i=0;$i -lt 60;$i++){ ^
-     try { ^
-       $r=Invoke-WebRequest 'http://localhost:14444/status' -UseBasicParsing -TimeoutSec 2; ^
-       if($r.StatusCode -eq 200){ Write-Host 'Grid ready'; $ok=$true; break } ^
-     } catch {} ^
-     Start-Sleep -Seconds 2 ^
-   } ^
-   if(-not $ok){ Write-Host 'Grid not ready'; exit 1 }"
+    // Debug: servisleri göster
+    bat 'docker compose -f %COMPOSE_FILE% ps'
+
+    // 1) Selenium Grid ready (host -> localhost:14444/status)
+    bat '''
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ok=$false; for($i=0;$i -lt 60;$i++){ try { $r=Invoke-WebRequest 'http://localhost:14444/status' -UseBasicParsing -TimeoutSec 2; if($r -and $r.StatusCode -eq 200){ Write-Host ('Grid ready: ' + $r.StatusCode); $ok=$true; break } } catch {} Start-Sleep -Seconds 2 }; if(-not $ok){ Write-Host 'Grid not ready'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color selenium\"; exit 1 }"
 '''
 
-        // App ready (host -> localhost:18080/api/public/ping)
-        bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ok=$false; ^
-   for($i=0;$i -lt 90;$i++){ ^
-     try { ^
-       $r=Invoke-WebRequest 'http://localhost:18080/api/public/ping' -UseBasicParsing -TimeoutSec 2; ^
-       if($r.StatusCode -eq 200){ Write-Host 'App ready on host:18080'; $ok=$true; break } ^
-     } catch {} ^
-     Start-Sleep -Seconds 2 ^
-   } ^
-   if(-not $ok){ Write-Host 'App not ready on host:18080'; exit 1 }"
+    // 2) App ready (host -> localhost:18080/api/public/ping)
+    //    - burada 18080 host port mapping'i; Jenkins host üzerinden garanti check
+    bat '''
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ok=$false; for($i=0;$i -lt 120;$i++){ try { $r=Invoke-WebRequest 'http://localhost:18080/api/public/ping' -UseBasicParsing -TimeoutSec 2; if($r -and $r.StatusCode -eq 200){ Write-Host ('App ready on host:18080: ' + $r.StatusCode); $ok=$true; break } } catch {} Start-Sleep -Seconds 2 }; if(-not $ok){ Write-Host 'App not ready on host:18080'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color app\"; cmd /c \"docker compose -f %COMPOSE_FILE% ps\"; exit 1 }"
 '''
-    }
+  }
 }
+
 
 
 
@@ -120,22 +108,31 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
             steps {
                 bat 'docker compose -f %COMPOSE_FILE% ps'
 
-        bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ok=$false; ^
-   for($i=0;$i -lt 60;$i++){ ^
-     try { ^
-       $out = & docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc 'curl -sS -I http://app:8080/api/public/ping'; ^
-       if($out){ $out | ForEach-Object { Write-Host $_ } } ^
-       if($out -match 'HTTP/.* 200'){ Write-Host 'Selenium can reach app:8080'; $ok=$true; break } ^
-     } catch { ^
-       Write-Host $_ ^
-     } ^
-     Start-Sleep -Seconds 2 ^
-   } ^
-   if($ok){ exit 0 } else { Write-Host 'Selenium cannot reach app:8080'; exit 1 }"
+    // Compose network bilgisi (debug için çok işe yarar)
+    bat '''
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = (cmd /c \"docker compose -f %COMPOSE_FILE% ls -q\" 2^>^&1 | Select-Object -First 1); Write-Host ('Compose project id: ' + $p); cmd /c \"docker network ls\" | Out-Host"
 '''
-    }
+
+    // Selenium -> app:8080 ping (container iç network)
+    bat '''
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ok=$false; for($i=0;$i -lt 90;$i++){
+  $cmd = \"docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \\\"(command -v curl >/dev/null 2>&1) || (apt-get update >/dev/null 2>&1 && apt-get install -y curl >/dev/null 2>&1) || (apk add --no-cache curl >/dev/null 2>&1) || true; curl -sS -i http://app:8080/api/public/ping\\\"\";
+  $out = cmd /c $cmd 2^>^&1;
+  if($out){ Write-Host $out };
+  if($out -match 'HTTP/\\S+\\s+200'){ Write-Host 'Selenium can reach app:8080 (HTTP 200)'; $ok=$true; break }
+  Start-Sleep -Seconds 2
+};
+if(-not $ok){
+  Write-Host 'Selenium cannot reach app:8080';
+  Write-Host '--- app logs ---'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color app\";
+  Write-Host '--- selenium logs ---'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color selenium\";
+  Write-Host '--- inspect network endpoints ---';
+  cmd /c \"docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \\\"getent hosts app || nslookup app || true\\\"\" 2^>^&1 | Out-Host;
+  cmd /c \"docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \\\"(command -v curl >/dev/null 2>&1) && curl -sS -i http://app:8080/ui/login.html?role=OWNER || true\\\"\" 2^>^&1 | Out-Host;
+  exit 1
+}"
+'''
+  }
 }
 
 
