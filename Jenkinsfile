@@ -106,34 +106,45 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='
 
         stage('5.5-Smoke: Selenium -> App network check') {
             steps {
-                bat 'docker compose -f %COMPOSE_FILE% ps'
+                // Görsel debug
+    bat 'docker compose -f %COMPOSE_FILE% ps'
 
-    // Compose network bilgisi (debug için çok işe yarar)
+    // 1) Selenium container içinde curl var mı? Yoksa kur. Sonra app:8080 ping dene.
+    //    90 deneme * 2sn = 180sn max
     bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = (cmd /c \"docker compose -f %COMPOSE_FILE% ls -q\" 2^>^&1 | Select-Object -First 1); Write-Host ('Compose project id: ' + $p); cmd /c \"docker network ls\" | Out-Host"
+docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc "set -e;
+  (command -v curl >/dev/null 2>&1) || (apt-get update >/dev/null 2>&1 && apt-get install -y curl >/dev/null 2>&1) || (apk add --no-cache curl >/dev/null 2>&1) || true;
+  i=0;
+  while [ $i -lt 90 ]; do
+    echo \"[try $i] curl -i http://app:8080/api/public/ping\";
+    out=$(curl -sS -i http://app:8080/api/public/ping 2>&1 || true);
+    echo \"$out\";
+    echo \"$out\" | grep -E \"HTTP/[^ ]+ 200\" >/dev/null 2>&1 && echo \"OK: Selenium can reach app:8080\" && exit 0;
+    i=$((i+1));
+    sleep 2;
+  done;
+  echo \"FAIL: Selenium cannot reach app:8080\";
+  exit 1"
 '''
 
-    // Selenium -> app:8080 ping (container iç network)
+    // 2) (opsiyonel ama faydalı) app UI sayfası dönüyor mu?
     bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ok=$false; for($i=0;$i -lt 90;$i++){
-  $cmd = \"docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \\\"(command -v curl >/dev/null 2>&1) || (apt-get update >/dev/null 2>&1 && apt-get install -y curl >/dev/null 2>&1) || (apk add --no-cache curl >/dev/null 2>&1) || true; curl -sS -i http://app:8080/api/public/ping\\\"\";
-  $out = cmd /c $cmd 2^>^&1;
-  if($out){ Write-Host $out };
-  if($out -match 'HTTP/\\S+\\s+200'){ Write-Host 'Selenium can reach app:8080 (HTTP 200)'; $ok=$true; break }
-  Start-Sleep -Seconds 2
-};
-if(-not $ok){
-  Write-Host 'Selenium cannot reach app:8080';
-  Write-Host '--- app logs ---'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color app\";
-  Write-Host '--- selenium logs ---'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color selenium\";
-  Write-Host '--- inspect network endpoints ---';
-  cmd /c \"docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \\\"getent hosts app || nslookup app || true\\\"\" 2^>^&1 | Out-Host;
-  cmd /c \"docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \\\"(command -v curl >/dev/null 2>&1) && curl -sS -i http://app:8080/ui/login.html?role=OWNER || true\\\"\" 2^>^&1 | Out-Host;
-  exit 1
-}"
+docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc "set -e;
+  (command -v curl >/dev/null 2>&1) || true;
+  echo '[ui check] http://app:8080/ui/login.html?role=OWNER';
+  curl -sS -I http://app:8080/ui/login.html?role=OWNER || true"
 '''
   }
+
+  post {
+                always {
+                    // başarısız olursa teşhis için logları dök (job çıktısına)
+      bat 'docker compose -f %COMPOSE_FILE% logs --no-color app || ver>nul'
+      bat 'docker compose -f %COMPOSE_FILE% logs --no-color selenium || ver>nul'
+    }
+  }
 }
+
 
 
 
