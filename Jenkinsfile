@@ -10,10 +10,10 @@ pipeline {
 
     environment {
         COMPOSE_FILE = 'docker-compose.ci.yml'
-        MVN_ARGS = '-U -B'
-        BASE_URL = 'http://app:8080'
-        SELENIUM_URL = 'http://localhost:14444/wd/hub'
-    }
+  MVN_ARGS = '-U -B'
+  BASE_URL = 'http://host.docker.internal:8080'
+  SELENIUM_URL = 'http://localhost:14444/wd/hub'
+}
 
     stages {
         stage('Checkout') {
@@ -171,19 +171,17 @@ exit 0
                     def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
 
       if (isUnix()) {
-                        // Linux/compose network senaryosu (app servisi networkteyse)
-        withEnv([
-          "BASE_URL=${env.BASE_URL ?: 'http://app:8080'}",
-          "SELENIUM_URL=${env.SELENIUM_URL ?: 'http://selenium:4444/wd/hub'}",
+                        withEnv([
+          "BASE_URL=http://app:8080",
+          "SELENIUM_URL=http://selenium:4444/wd/hub",
           "CHROME_ARGS=${chromeArgs}"
         ]) {
                             sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
         }
       } else {
-                        // Windows agent + Selenium container (localhost:14444) senaryosu
-        withEnv([
-          "BASE_URL=${env.BASE_URL ?: 'http://host.docker.internal:8080'}",
-          "SELENIUM_URL=${env.SELENIUM_URL ?: 'http://localhost:14444/wd/hub'}",
+                        withEnv([
+          "BASE_URL=http://host.docker.internal:8080",
+          "SELENIUM_URL=http://localhost:14444/wd/hub",
           "CHROME_ARGS=${chromeArgs}"
         ]) {
                             bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"

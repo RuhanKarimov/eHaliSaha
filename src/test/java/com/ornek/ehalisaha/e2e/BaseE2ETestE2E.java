@@ -19,7 +19,18 @@ public abstract class BaseE2ETestE2E {
     protected WebDriverWait wait;
 
     protected String baseUrl() {
-        return System.getenv().getOrDefault("BASE_URL", "http://app:8080");
+        String env = System.getenv("BASE_URL");
+        if (env != null && !env.isBlank()) return env;
+
+        String sel = seleniumUrl();
+        // Selenium’a localhost üzerinden gidiyorsan: chrome container’da çalışır,
+        // host’taki app’e erişim için host.docker.internal gerekir.
+        if (sel.contains("localhost") || sel.contains("127.0.0.1")) {
+            return "http://host.docker.internal:8080";
+        }
+
+        // Compose içi tipik senaryo: app servisi
+        return "http://app:8080";
     }
 
     protected String seleniumUrl() {
@@ -78,6 +89,7 @@ public abstract class BaseE2ETestE2E {
 
     protected void go(String path) {
         String url = baseUrl() + (path.startsWith("/") ? path : ("/" + path));
+        System.out.println("NAVIGATE=" + url);
         driver.get(url);
     }
 
