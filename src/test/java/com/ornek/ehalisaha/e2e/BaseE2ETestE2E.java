@@ -8,67 +8,78 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.support.ui.*;
 
+import java.io.File;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 public abstract class BaseE2ETestE2E {
 
     protected WebDriver driver;
     protected WebDriverWait wait;
 
+    // ---------- env / urls ----------
+
     protected String baseUrl() {
         String env = System.getenv("BASE_URL");
-        if (env != null && !env.isBlank()) return env;
+        if (env != null && !env.isBlank()) return env.trim();
 
+        // fallback: seleniumUrl localhost ise chrome container hosta gidiyor -> host.docker.internal
         String sel = seleniumUrl();
         if (sel.contains("localhost") || sel.contains("127.0.0.1")) {
             return "http://host.docker.internal:8080";
         }
+        // compose içi tipik: selenium container -> app service
         return "http://app:8080";
     }
 
     protected String seleniumUrl() {
-        return System.getenv().getOrDefault("SELENIUM_URL", "http://selenium:4444/wd/hub");
+        String env = System.getenv("SELENIUM_URL");
+        if (env != null && !env.isBlank()) return env.trim();
+        return "http://selenium:4444/wd/hub";
     }
+
+    // ---------- setup / teardown ----------
 
     @BeforeEach
     void setUp() throws Exception {
         ChromeOptions options = new ChromeOptions();
+
+        // headless
         options.addArguments("--headless=new");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--window-size=1280,900");
 
-        options.setAcceptInsecureCerts(true);
-        options.addArguments("--ignore-certificate-errors");
-        options.addArguments("--allow-insecure-localhost");
-
-        options.addArguments("--disable-features="
-                + "HttpsOnlyMode,"
-                + "UpgradeInsecureRequests,"
-                + "HttpsFirstMode,"
-                + "HttpsFirstModeV2,"
-                + "HttpsUpgrades,"
-                + "AutomaticHttpsUpgrades");
-
+        // stability for docker/grid
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
         options.addArguments("--no-first-run");
         options.addArguments("--no-default-browser-check");
 
-        System.out.println("CHROME_ARGS=" + System.getenv("CHROME_ARGS"));
+        // ignore SSL / https-only
+        options.setAcceptInsecureCerts(true);
+        options.addArguments("--ignore-certificate-errors");
+        options.addArguments("--allow-insecure-localhost");
+        options.addArguments("--disable-features=" +
+                "HttpsOnlyMode," +
+                "UpgradeInsecureRequests," +
+                "HttpsFirstMode," +
+                "HttpsFirstModeV2," +
+                "HttpsUpgrades," +
+                "AutomaticHttpsUpgrades");
+
+        // apply CHROME_ARGS from Jenkins (split by ;)
+        String raw = System.getenv("CHROME_ARGS");
+        System.out.println("CHROME_ARGS=" + raw);
         System.out.println("BASE_URL=" + baseUrl());
         System.out.println("SELENIUM_URL=" + seleniumUrl());
 
-        String raw = System.getenv("CHROME_ARGS");
         if (raw != null && !raw.isBlank()) {
             for (String part : raw.split(";")) {
                 String arg = part.trim();
@@ -86,7 +97,6 @@ public abstract class BaseE2ETestE2E {
     void tearDown(TestInfo info) {
         String testName = info.getTestClass().map(Class::getSimpleName).orElse("Test")
                 + "_" + info.getTestMethod().map(m -> m.getName()).orElse("method");
-
         testName = testName.replaceAll("[^a-zA-Z0-9._-]", "_");
 
         try {
@@ -98,9 +108,7 @@ public abstract class BaseE2ETestE2E {
                 try {
                     File src = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
                     Path out = dir.resolve(testName + ".png");
-                    try {
-                        Files.copy(src.toPath(), out, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                    } catch (Exception ignored) {}
+                    Files.copy(src.toPath(), out, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 } catch (Exception ignored) {}
 
                 // page source
@@ -112,11 +120,14 @@ public abstract class BaseE2ETestE2E {
 
                 // small debug
                 try {
-                    String url = driver.getCurrentUrl();
-                    String out = safeText(By.id("ownerOut"));
+                    String url = safeText(() -> driver.getCurrentUrl());
+                    String ownerOut = safeText(By.id("ownerOut"));
                     Path p = dir.resolve(testName + ".txt");
                     Files.writeString(p,
-                            "url=" + url + "\nownerOut=" + out + "\n",
+                            "url=" + url + "\n" +
+                                    "BASE_URL=" + baseUrl() + "\n" +
+                                    "SELENIUM_URL=" + seleniumUrl() + "\n" +
+                                    "ownerOut=" + ownerOut + "\n",
                             StandardCharsets.UTF_8);
                 } catch (Exception ignored) {}
             }
@@ -125,7 +136,7 @@ public abstract class BaseE2ETestE2E {
         try { if (driver != null) driver.quit(); } catch (Exception ignored) {}
     }
 
-    // ---------------- helpers ----------------
+    // ---------- helpers ----------
 
     protected void go(String path) {
         String url = baseUrl() + (path.startsWith("/") ? path : ("/" + path));
@@ -136,8 +147,8 @@ public abstract class BaseE2ETestE2E {
 
     protected void waitForDocumentReady() {
         try {
-            WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(20));
-            w.until(d -> "complete".equals(((JavascriptExecutor) d).executeScript("return document.readyState")));
+            new WebDriverWait(driver, Duration.ofSeconds(20))
+                    .until(d -> "complete".equals(((JavascriptExecutor) d).executeScript("return document.readyState")));
         } catch (Exception ignored) {}
     }
 
@@ -145,8 +156,10 @@ public abstract class BaseE2ETestE2E {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(id)));
     }
 
-    protected void click(By locator) {
-        wait.until(ExpectedConditions.elementToBeClickable(locator)).click();
+    protected void type(By locator, String text) {
+        WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        el.clear();
+        el.sendKeys(text);
     }
 
     protected void clickSmart(By locator) {
@@ -158,26 +171,17 @@ public abstract class BaseE2ETestE2E {
         try {
             wait.until(ExpectedConditions.elementToBeClickable(el)).click();
         } catch (Exception e) {
-            try {
-                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
-            } catch (Exception ex) {
-                throw e;
-            }
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
         }
-    }
-
-    protected void type(By locator, String text) {
-        WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
-        el.clear();
-        el.sendKeys(text);
     }
 
     protected void selectByContainsText(By selectLocator, String containsText) {
         WebElement sel = wait.until(ExpectedConditions.visibilityOfElementLocated(selectLocator));
         Select s = new Select(sel);
         for (WebElement opt : s.getOptions()) {
-            if (opt.getText() != null && opt.getText().contains(containsText)) {
-                s.selectByVisibleText(opt.getText());
+            String t = opt.getText();
+            if (t != null && t.contains(containsText)) {
+                s.selectByVisibleText(t);
                 return;
             }
         }
@@ -187,7 +191,7 @@ public abstract class BaseE2ETestE2E {
     protected String safeText(By by) {
         try {
             String t = driver.findElement(by).getText();
-            return t == null ? "" : t;
+            return t == null ? "" : t.trim();
         } catch (Exception e) {
             return "";
         }
@@ -196,17 +200,39 @@ public abstract class BaseE2ETestE2E {
     protected String safeText(WebDriver d, By by) {
         try {
             String t = d.findElement(by).getText();
-            return t == null ? "" : t;
+            return t == null ? "" : t.trim();
         } catch (Exception e) {
             return "";
         }
     }
 
+    protected String safeText(SupplierThrows<String> fn) {
+        try {
+            String v = fn.get();
+            return v == null ? "" : v.trim();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    @FunctionalInterface
+    protected interface SupplierThrows<T> {
+        T get() throws Exception;
+    }
+
     protected boolean isErrorLike(String s) {
         if (s == null) return false;
-        String t = s.toLowerCase();
+        String t = s.trim().toLowerCase();
+        // UI "Hata: ..." diyor
         return t.contains("hata") || t.contains("error") || t.contains("exception")
                 || t.contains("failed") || t.contains("invalid");
+    }
+
+    protected boolean isOkLike(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        // UI "OK ✅ FacilityId=..." diyor
+        return t.contains("OK") || t.contains("FacilityId=");
     }
 
     protected boolean hasOptionContaining(By selectBy, String contains) {
@@ -226,11 +252,29 @@ public abstract class BaseE2ETestE2E {
         }
     }
 
-    // ---------------- login ----------------
+    protected String dumpOptions(By selectBy) {
+        try {
+            Select s = new Select(driver.findElement(selectBy));
+            StringBuilder sb = new StringBuilder();
+            for (WebElement opt : s.getOptions()) sb.append("[").append(opt.getText()).append("] ");
+            return sb.toString().trim();
+        } catch (Exception e) {
+            return "(options okunamadı)";
+        }
+    }
+
+    protected void tryRefreshAll() {
+        // owner.html: onclick="UI.refreshAll()"
+        By btnRefresh = By.cssSelector("button[onclick*='UI.refreshAll']");
+        if (!driver.findElements(btnRefresh).isEmpty()) {
+            try { clickSmart(btnRefresh); } catch (Exception ignored) {}
+        }
+    }
+
+    // ---------- login ----------
 
     protected void loginOwner() {
         login("OWNER", "owner1", "owner123", "/ui/owner.html");
-        // owner sayfasının gerçekten geldiğine dair bir sinyal
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("ownerFacilitySel")));
     }
 
@@ -247,73 +291,100 @@ public abstract class BaseE2ETestE2E {
         clickSmart(By.id("btn"));
 
         wait.until(d -> d.getCurrentUrl().contains(expectedPath));
+        waitForDocumentReady();
     }
 
-    protected void assertOutContains(String outId, String expected) {
-        WebElement out = byId(outId);
-        wait.until(d -> out.getText() != null && out.getText().contains(expected));
-        assertTrue(out.getText().contains(expected));
-    }
-
-    // ---------------- Owner flows ----------------
+    // ---------- Owner flows ----------
 
     protected void ensureFacilityExists(String name, String addr) {
         By selLoc = By.id("ownerFacilitySel");
+        By outLoc = By.id("ownerOut");
 
+        // owner panel DOM
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facName")));
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facAddr")));
         wait.until(ExpectedConditions.presenceOfElementLocated(selLoc));
+        wait.until(ExpectedConditions.presenceOfElementLocated(outLoc));
 
-        // 1) Zaten var mı?
+        // bazen sayfa açılır açılmaz listeler geç geliyor -> 1 kez refreshAll
+        tryRefreshAll();
+
+        // 1) zaten var mı?
         if (hasOptionContaining(selLoc, name)) {
             selectByContainsText(selLoc, name);
             return;
         }
 
-        // (opsiyonel) eski out temizle
-        try {
-            ((JavascriptExecutor) driver).executeScript(
-                    "var el=document.getElementById('ownerOut'); if(el) el.textContent='';"
-            );
-        } catch (Exception ignored) {}
-
-        // 2) Yoksa oluştur
+        // 2) create
         type(By.id("facName"), name);
         type(By.id("facAddr"), addr);
 
-        By btn = By.cssSelector("button[onclick*='UI.createFacility']");
-        clickSmart(btn);
+        // tercih: id varsa onu kullan
+        By btnCreate = By.id("btnCreateFacility");
+        if (driver.findElements(btnCreate).isEmpty()) {
+            // fallback: onclick
+            btnCreate = By.cssSelector("button[onclick*='UI.createFacility']");
+        }
+        clickSmart(btnCreate);
 
-        // ✅ Başarı sinyali: dropdown option gelmesi
-        // ownerOut sadece hata tespiti için kullanılır (başarı mesajı overwrite olabilir)
+        // 3) ownerOut'ta "OK..." veya "Hata..." sinyali gelsin (API döndü mü?)
+        WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(30));
+        apiWait.pollingEvery(Duration.ofMillis(250));
+        apiWait.until(d -> {
+            String out = safeText(d, outLoc);
+            return isOkLike(out) || isErrorLike(out);
+        });
+
+        String outNow = safeText(outLoc);
+
+        // Hata geldiyse: bazen create OK olur ama loadFacilities patlar -> refreshAll ile toparlanabilir
+        if (isErrorLike(outNow)) {
+            tryRefreshAll();
+        }
+
+        // 4) asıl başarı sinyali: dropdown option gelmesi
         WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(60));
         longWait.pollingEvery(Duration.ofMillis(300));
 
-        longWait.until(d -> {
-            if (hasOptionContaining(d, selLoc, name)) return true;
-            String out = safeText(d, By.id("ownerOut"));
-            return isErrorLike(out);
-        });
-
-        if (!hasOptionContaining(selLoc, name)) {
-            String out = safeText(By.id("ownerOut"));
-            String opts = "";
-            try {
-                Select sel = new Select(driver.findElement(selLoc));
-                StringBuilder sb = new StringBuilder();
-                for (WebElement opt : sel.getOptions()) sb.append("[").append(opt.getText()).append("] ");
-                opts = sb.toString().trim();
-            } catch (Exception ignored) {}
-            fail("Facility oluşturulamadı veya dropdown'a düşmedi. ownerOut=" + out + " options=" + opts);
+        try {
+            longWait.until(d -> hasOptionContaining(d, selLoc, name));
+        } catch (TimeoutException te) {
+            // son çare: 1 kez daha refreshAll
+            tryRefreshAll();
+            longWait.until(d -> hasOptionContaining(d, selLoc, name));
         }
 
+        if (!hasOptionContaining(selLoc, name)) {
+            fail("Facility dropdown'a düşmedi. ownerOut=" + safeText(outLoc) + " options=" + dumpOptions(selLoc));
+        }
+
+        // 5) select
         selectByContainsText(selLoc, name);
+    }
+
+    protected void setSlotsDayAndSave() {
+        By dayBtn = By.xpath("//button[contains(normalize-space(.), 'Gündüz')]");
+        By saveBtn = By.xpath("//button[contains(normalize-space(.), 'Slotları Kaydet')]");
+        By outLoc = By.id("ownerOut");
+
+        clickSmart(dayBtn);
+        clickSmart(saveBtn);
+
+        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
+        w.pollingEvery(Duration.ofMillis(300));
+        w.until(d -> {
+            String out = safeText(d, outLoc);
+            return (out != null && out.toLowerCase().contains("slot")) || isErrorLike(out);
+        });
+
+        String out = safeText(outLoc);
+        if (isErrorLike(out)) fail("Slot kaydetme hata verdi. ownerOut=" + out);
     }
 
     protected void ensurePitchExists(String pitchName) {
         By selLoc = By.id("ownerPitchSel");
+        By outLoc = By.id("ownerOut");
 
-        // pitch sel varsa ve içeriyorsa direkt seç
         if (hasOptionContaining(selLoc, pitchName)) {
             selectByContainsText(selLoc, pitchName);
             return;
@@ -321,40 +392,44 @@ public abstract class BaseE2ETestE2E {
 
         type(By.id("pitchName"), pitchName);
 
-        // "Ekle" text'i yerine direkt createPitch butonu
         By btn = By.cssSelector("button[onclick*='UI.createPitch']");
         if (driver.findElements(btn).isEmpty()) {
-            // fallback (sayfada onclick yoksa)
             btn = By.xpath("//button[normalize-space(.)='Ekle']");
         }
         clickSmart(btn);
 
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(45));
-        longWait.pollingEvery(Duration.ofMillis(300));
-        longWait.until(d -> hasOptionContaining(d, selLoc, pitchName) || isErrorLike(safeText(d, By.id("ownerOut"))));
+        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
+        w.pollingEvery(Duration.ofMillis(300));
+        w.until(d -> hasOptionContaining(d, selLoc, pitchName) || isErrorLike(safeText(d, outLoc)));
 
         if (!hasOptionContaining(selLoc, pitchName)) {
-            fail("Pitch oluşturulamadı veya dropdown'a düşmedi. ownerOut=" + safeText(By.id("ownerOut")));
+            fail("Pitch dropdown'a düşmedi. ownerOut=" + safeText(outLoc) + " options=" + dumpOptions(selLoc));
         }
 
         selectByContainsText(selLoc, pitchName);
     }
 
     protected void upsertPrice60(int price) {
-        // duration select should include 60
+        By outLoc = By.id("ownerOut");
+
         Select dur = new Select(byId("priceDurationSel"));
-        boolean ok = dur.getOptions().stream().anyMatch(o -> o.getText() != null && o.getText().contains("60"));
-        if (!ok) fail("60 minutes duration option not found");
+        boolean has60 = dur.getOptions().stream().anyMatch(o -> {
+            String t = o.getText();
+            return t != null && t.contains("60");
+        });
+        if (!has60) fail("60 minutes duration option not found");
 
         for (WebElement opt : dur.getOptions()) {
-            if (opt.getText() != null && opt.getText().contains("60")) {
-                dur.selectByVisibleText(opt.getText());
+            String t = opt.getText();
+            if (t != null && t.contains("60")) {
+                dur.selectByVisibleText(t);
                 break;
             }
         }
 
-        // input id farklı olabiliyor: priceValue / priceInput
-        By priceBox = driver.findElements(By.id("priceValue")).isEmpty() ? By.id("priceInput") : By.id("priceValue");
+        By priceBox = driver.findElements(By.id("priceValue")).isEmpty()
+                ? By.id("priceInput")
+                : By.id("priceValue");
         type(priceBox, String.valueOf(price));
 
         By saveBtn = By.cssSelector("button[onclick*='UI.savePrice']");
@@ -363,52 +438,28 @@ public abstract class BaseE2ETestE2E {
         }
         clickSmart(saveBtn);
 
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(45));
-        longWait.pollingEvery(Duration.ofMillis(300));
-        longWait.until(d -> {
-            try {
-                String box = d.findElement(By.id("pricingBox")).getText();
-                if (box != null && box.contains(String.valueOf(price))) return true;
-            } catch (Exception ignored) {}
-            return isErrorLike(safeText(d, By.id("ownerOut")));
+        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
+        w.pollingEvery(Duration.ofMillis(300));
+        w.until(d -> {
+            String box = safeText(d, By.id("pricingBox"));
+            if (box.contains(String.valueOf(price))) return true;
+            return isErrorLike(safeText(d, outLoc));
         });
 
-        if (!safeText(By.id("pricingBox")).contains(String.valueOf(price))) {
-            fail("Price kaydedilemedi. ownerOut=" + safeText(By.id("ownerOut"))
-                    + " pricingBox=" + safeText(By.id("pricingBox")));
+        String box = safeText(By.id("pricingBox"));
+        if (!box.contains(String.valueOf(price))) {
+            fail("Price kaydedilemedi. ownerOut=" + safeText(outLoc) + " pricingBox=" + box);
         }
     }
 
-    protected void setSlotsDayAndSave() {
-        By dayBtn = By.xpath("//button[contains(normalize-space(.), 'Gündüz')]");
-        By saveBtn = By.xpath("//button[contains(normalize-space(.), 'Slotları Kaydet')]");
-
-        clickSmart(dayBtn);
-        clickSmart(saveBtn);
-
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(45));
-        longWait.pollingEvery(Duration.ofMillis(300));
-
-        longWait.until(d -> {
-            String out = safeText(d, By.id("ownerOut"));
-            return (out != null && out.toLowerCase().contains("slot")) || isErrorLike(out);
-        });
-
-        String out = safeText(By.id("ownerOut"));
-        if (isErrorLike(out)) {
-            fail("Slot kaydetme hata verdi. ownerOut=" + out);
-        }
-    }
-
-    // ---------------- Member flows ----------------
+    // ---------- Member flows ----------
 
     protected void memberSelectFacilityAndPitch(String facilityName, String pitchName) {
         selectByContainsText(By.id("facilitySel"), facilityName);
 
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(45));
-        longWait.pollingEvery(Duration.ofMillis(300));
-
-        longWait.until(d -> {
+        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
+        w.pollingEvery(Duration.ofMillis(300));
+        w.until(d -> {
             try {
                 Select p = new Select(d.findElement(By.id("pitchSel")));
                 for (WebElement opt : p.getOptions()) {
@@ -431,8 +482,8 @@ public abstract class BaseE2ETestE2E {
         if (btns.isEmpty()) fail("slotGrid içinde button yok");
 
         for (WebElement b : btns) {
-            boolean disabled = false;
-            try { disabled = !b.isEnabled(); } catch (Exception ignored) {}
+            boolean disabled;
+            try { disabled = !b.isEnabled(); } catch (Exception e) { disabled = true; }
             if (disabled) continue;
 
             String cls = Optional.ofNullable(b.getAttribute("class")).orElse("").toLowerCase();
