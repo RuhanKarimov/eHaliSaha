@@ -175,6 +175,47 @@ public abstract class BaseE2ETestE2E {
         }
     }
 
+    // --------- click helpers (geri eklendi) ---------
+
+    protected void click(By locator) {
+        // testlerde click(By...) kullanıyorsun -> clickSmart ile aynı güvenlikte çalışsın
+        clickSmart(locator);
+    }
+
+// --------- out assertions (geri eklendi) ---------
+
+    protected void assertOutContains(String outId, String expected) {
+        By outLoc = By.id(outId);
+
+        // out elementi var mı?
+        wait.until(ExpectedConditions.presenceOfElementLocated(outLoc));
+
+        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(30));
+        w.pollingEvery(Duration.ofMillis(250));
+
+        try {
+            w.until(d -> {
+                String t = safeText(d, outLoc);
+                // beklenen metin gelince başarı
+                if (t != null && t.contains(expected)) return true;
+                // hata mesajı geldiyse beklemeyi bitir (sonra fail edeceğiz)
+                return isErrorLike(t);
+            });
+        } catch (TimeoutException te) {
+            // aşağıda net fail mesajı vereceğiz
+        }
+
+        String finalText = safeText(outLoc);
+        if (finalText == null) finalText = "";
+
+        if (!finalText.contains(expected)) {
+            fail("Beklenen çıktı bulunamadı. outId=" + outId +
+                    " expected='" + expected + "'" +
+                    " actual='" + finalText + "'");
+        }
+    }
+
+
     protected void selectByContainsText(By selectLocator, String containsText) {
         WebElement sel = wait.until(ExpectedConditions.visibilityOfElementLocated(selectLocator));
         Select s = new Select(sel);
