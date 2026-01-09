@@ -117,44 +117,64 @@ pipeline {
                 script {
                     if (isUnix()) {
                         sh "docker compose -f ${env.COMPOSE_FILE} up -d --build"
-            sh "docker compose -f ${env.COMPOSE_FILE} ps"
-          } else {
-                        bat "docker compose -f %COMPOSE_FILE% up -d --build"
-            bat "docker compose -f %COMPOSE_FILE% ps"
+        sh "docker compose -f ${env.COMPOSE_FILE} ps"
+      } else {
 
-            // Selenium Grid ready (host)
-            bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ok=$false; for($i=0;$i -lt 60;$i++){ try { $r=Invoke-WebRequest 'http://localhost:14444/status' -UseBasicParsing -TimeoutSec 2; if($r -and $r.StatusCode -eq 200){ Write-Host ('Grid ready: ' + $r.StatusCode); $ok=$true; break } } catch {} Start-Sleep -Seconds 2 }; if(-not $ok){ Write-Host 'Grid not ready'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color selenium\"; exit 1 }"
-'''
+                        bat 'docker compose -f %COMPOSE_FILE% up -d --build'
+        bat 'docker compose -f %COMPOSE_FILE% ps'
 
-            // App ready (host) -> önce 8080 dene, olmazsa 18080 dene
-            bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "
-$ErrorActionPreference='SilentlyContinue';
-$urls=@('http://localhost:8080/api/public/ping','http://localhost:18080/api/public/ping');
-$ok=$false;
-for($i=0;$i -lt 120;$i++){
-  foreach($u in $urls){
-    try{
-      $r=Invoke-WebRequest $u -UseBasicParsing -TimeoutSec 2;
-      if($r -and $r.StatusCode -eq 200){ Write-Host ('App ready: ' + $u + ' => ' + $r.StatusCode); $ok=$true; break }
+        // ✅ CMD quoting çilesi yok: PowerShell'i dosyadan çalıştır
+        writeFile file: 'wait-ci.ps1', encoding: 'UTF-8', text: '''
+$ErrorActionPreference = "SilentlyContinue"
+$compose = $env:COMPOSE_FILE
+
+function Wait-Url([string]$url, [int]$tries, [int]$sleepSec) {
+  for($i=0; $i -lt $tries; $i++){
+    try {
+      $r = Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 2
+      if($r -and $r.StatusCode -eq 200){
+        Write-Host ("OK: " + $url + " => " + $r.StatusCode)
+        return $true
+      }
     } catch {}
+    Start-Sleep -Seconds $sleepSec
   }
-  if($ok){ break }
-  Start-Sleep -Seconds 2
+  return $false
 }
-if(-not $ok){
-  Write-Host 'App not ready';
-  cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color app\";
-  cmd /c \"docker compose -f %COMPOSE_FILE% ps\";
+
+# 1) Selenium Grid ready (host -> 14444)
+if(-not (Wait-Url "http://localhost:14444/status" 60 2)){
+  Write-Host "FAIL: Grid not ready"
+  & docker compose -f $compose logs --no-color selenium | Out-Host
   exit 1
 }
-"
+
+# 2) App ready (host port mapping)
+# compose ps çıktında 18080->8080 görünüyor, önce 18080 dene
+$ok = Wait-Url "http://localhost:18080/api/public/ping" 120 2
+
+# bazı makinelerde farklı mapping varsa diye opsiyonel fallback
+if(-not $ok){
+  $ok = Wait-Url "http://localhost:8080/api/public/ping" 30 2
+}
+
+if(-not $ok){
+  Write-Host "FAIL: App not ready on host"
+  & docker compose -f $compose ps | Out-Host
+  & docker compose -f $compose logs --no-color app | Out-Host
+  exit 1
+}
+
+Write-Host "READY: Selenium + App"
+exit 0
 '''
-          }
-        }
+
+        bat 'powershell -NoProfile -ExecutionPolicy Bypass -File wait-ci.ps1'
       }
     }
+  }
+}
+
 
     stage('5.5-Smoke: Selenium -> App network check') {
             steps {
