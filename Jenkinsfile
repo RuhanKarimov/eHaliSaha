@@ -165,25 +165,33 @@ exit 0
 
 
 
-
-
-
-
-
-
-
-
         stage('6.1-E2E (Selenium) Scenario 1: Owner Login') {
             steps {
                 script {
                     if (isUnix()) {
-                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
-                    } else {
-                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
-                    }
-                }
-            }
+                        withEnv([
+          "BASE_URL=${env.BASE_URL}",
+          "SELENIUM_URL=${env.SELENIUM_URL}",
+          // opsiyonel: test kodun okuyorsa chrome argümanlarını geçir
+          "CHROME_ARGS=--disable-features=HttpsOnlyMode,UpgradeInsecureRequests;--ignore-certificate-errors;--allow-insecure-localhost"
+        ]) {
+                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
         }
+      } else {
+                        withEnv([
+          "BASE_URL=${env.BASE_URL}",
+          "SELENIUM_URL=${env.SELENIUM_URL}",
+          "CHROME_ARGS=--disable-features=HttpsOnlyMode,UpgradeInsecureRequests;--ignore-certificate-errors;--allow-insecure-localhost"
+        ]) {
+                            // cmd.exe tarafında quoting derdi olmasın diye tek komut
+          bat /@echo off
+          bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
+        }
+      }
+    }
+  }
+}
+
 
         stage('6.2-E2E Scenario 2: Owner Creates Facility') {
             steps {
