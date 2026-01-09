@@ -99,22 +99,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 90; $i+
 
         stage('5.5-Smoke: Selenium -> App network check') {
             steps {
-                // Compose iç network: selenium container -> http://app:8080
-        bat '''
-docker compose -f %COMPOSE_FILE% ps
+                bat 'docker compose -f %COMPOSE_FILE% ps'
 
-powershell -NoProfile -Command ^
-  "for($i=0;$i -lt 90;$i++){ ^
-     $cmd = 'docker compose -f %COMPOSE_FILE% exec -T selenium bash -lc \"curl -fsS -o /dev/null -w `\"HTTP:%{http_code}`\" http://app:8080/api/public/ping\"'; ^
-     $out = cmd /c $cmd 2^>^&1; ^
-     Write-Host $out; ^
-     if($out -match 'HTTP:200'){ Write-Host 'Selenium can reach app:8080'; exit 0 } ^
-     Start-Sleep 2 ^
-   } ^
-   Write-Host 'Selenium cannot reach app:8080'; exit 1"
+        // Selenium container içinden app servisine (compose network) ulaşabiliyor mu?
+        // Not: selenium imajında bash olmayabilir, sh kullanıyoruz.
+        bat '''
+powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 90; $i++){ try { $out = cmd /c \"docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc 'curl -fsS -o /dev/null -w HTTP:%{http_code} http://app:8080/api/public/ping'\" 2>&1; Write-Host $out; if($out -match 'HTTP:200'){ Write-Host 'Selenium can reach app:8080'; exit 0 } } catch { Write-Host $_ } ; Start-Sleep -Seconds 2 } ; Write-Host 'Selenium cannot reach app:8080'; exit 1"
 '''
     }
 }
+
 
 
 
