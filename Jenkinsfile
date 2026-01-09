@@ -101,13 +101,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 90; $i+
             steps {
                 bat 'docker compose -f %COMPOSE_FILE% ps'
 
-        // Selenium container içinden app servisine (compose network) ulaşabiliyor mu?
-        // Not: selenium imajında bash olmayabilir, sh kullanıyoruz.
         bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 90; $i++){ try { $out = cmd /c \"docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc 'curl -fsS -o /dev/null -w HTTP:%{http_code} http://app:8080/api/public/ping'\" 2>&1; Write-Host $out; if($out -match 'HTTP:200'){ Write-Host 'Selenium can reach app:8080'; exit 0 } } catch { Write-Host $_ } ; Start-Sleep -Seconds 2 } ; Write-Host 'Selenium cannot reach app:8080'; exit 1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok=$false; for($i=0;$i -lt 60;$i++){ $cmd='docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \"curl -sS -I http://app:8080/api/public/ping | head -n 1\"'; $out = cmd /c $cmd 2>&1; Write-Host $out; if($out -match '200'){ Write-Host 'Selenium can reach app:8080'; $ok=$true; break }; Start-Sleep 2 }; if($ok){ exit 0 } else { Write-Host 'Selenium cannot reach app:8080'; exit 1 }"
 '''
     }
 }
+
 
 
 
