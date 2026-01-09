@@ -168,23 +168,31 @@ exit 0
         stage('6.1-E2E (Selenium) Scenario 1: Owner Login') {
             steps {
                 script {
-                    def e2eEnv = [
-        "BASE_URL=${env.BASE_URL}",
-        "SELENIUM_URL=${env.SELENIUM_URL}",
-        // Chrome 143+: HTTPS upgrade/first-mode vb. kapat
-        "CHROME_ARGS=--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-      ]
+                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
 
-      withEnv(e2eEnv) {
-                        if (isUnix()) {
+      if (isUnix()) {
+                        // Linux/compose network senaryosu (app servisi networkteyse)
+        withEnv([
+          "BASE_URL=${env.BASE_URL ?: 'http://app:8080'}",
+          "SELENIUM_URL=${env.SELENIUM_URL ?: 'http://selenium:4444/wd/hub'}",
+          "CHROME_ARGS=${chromeArgs}"
+        ]) {
                             sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
-        } else {
+        }
+      } else {
+                        // Windows agent + Selenium container (localhost:14444) senaryosu
+        withEnv([
+          "BASE_URL=${env.BASE_URL ?: 'http://host.docker.internal:8080'}",
+          "SELENIUM_URL=${env.SELENIUM_URL ?: 'http://localhost:14444/wd/hub'}",
+          "CHROME_ARGS=${chromeArgs}"
+        ]) {
                             bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
         }
       }
     }
   }
 }
+
 
 
 
