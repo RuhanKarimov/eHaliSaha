@@ -194,34 +194,16 @@ public abstract class BaseE2ETestE2E {
         type(By.id("facName"), name);
         type(By.id("facAddr"), addr);
 
-        // TR karakterlerini normalize ederek (ş->s, ğ->g vs) TR/EN buton metinlerini yakala
-        String norm =
-                "translate(normalize-space(.)," +
-                        "'ABCDEFGHIJKLMNOPQRSTUVWXYZİŞĞÜÖÇ'," +
-                        "'abcdefghijklmnopqrstuvwxyzisguoc')";
-
-        By btn = By.xpath(
-                "//*[self::button or self::a][" +
-                        "(" +
-                        "contains(" + norm + ",'facility') or " +
-                        "contains(" + norm + ",'tesis')" +
-                        ") and (" +
-                        "contains(" + norm + ",'olustur') or " +
-                        "contains(" + norm + ",'create') or " +
-                        "contains(" + norm + ",'ekle') or " +
-                        "contains(" + norm + ",'add')" +
-                        ")" +
-                        "]"
-        );
+        // ✅ HTML'de birebir var: onclick="UI.createFacility()"
+        By btn = By.xpath("//button[contains(@onclick,'UI.createFacility')]");
 
         WebElement button = wait.until(ExpectedConditions.elementToBeClickable(btn));
-        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", button);
+        ((org.openqa.selenium.JavascriptExecutor) driver)
+                .executeScript("arguments[0].scrollIntoView({block:'center'});", button);
 
-        try {
-            button.click();
-        } catch (Exception e) {
-            // Bazı durumlarda overlay/animasyon tıklamayı engelliyor, JS click ile bypass
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
+        try { button.click(); }
+        catch (Exception e) {
+            ((org.openqa.selenium.JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
         }
 
         // 3) Dropdown’da görünmesini bekle
