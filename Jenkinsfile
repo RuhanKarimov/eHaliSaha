@@ -82,17 +82,36 @@ pipeline {
             steps {
                 bat 'docker compose -f %COMPOSE_FILE% up -d --build'
 
-        // 1) Selenium Grid ready bekle (host -> localhost:14444/status)
+        // Selenium Grid ready (host -> localhost:14444/status)
         bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 60; $i++){ try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:14444/status; if($r.StatusCode -eq 200){ Write-Host 'Grid ready'; exit 0 } } catch {} ; Start-Sleep -Seconds 2 } ; Write-Host 'Grid NOT ready'; exit 1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ok=$false; ^
+   for($i=0;$i -lt 60;$i++){ ^
+     try { ^
+       $r=Invoke-WebRequest 'http://localhost:14444/status' -UseBasicParsing -TimeoutSec 2; ^
+       if($r.StatusCode -eq 200){ Write-Host 'Grid ready'; $ok=$true; break } ^
+     } catch {} ^
+     Start-Sleep -Seconds 2 ^
+   } ^
+   if(-not $ok){ Write-Host 'Grid not ready'; exit 1 }"
 '''
 
-        // 2) App ready bekle (host -> localhost:18080/api/public/ping)
+        // App ready (host -> localhost:18080/api/public/ping)
         bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 90; $i++){ try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://localhost:18080/api/public/ping; if($r.StatusCode -eq 200){ Write-Host 'App ready on host:18080'; exit 0 } } catch {} ; Start-Sleep -Seconds 2 } ; Write-Host 'App not ready (host:18080)'; exit 1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ok=$false; ^
+   for($i=0;$i -lt 90;$i++){ ^
+     try { ^
+       $r=Invoke-WebRequest 'http://localhost:18080/api/public/ping' -UseBasicParsing -TimeoutSec 2; ^
+       if($r.StatusCode -eq 200){ Write-Host 'App ready on host:18080'; $ok=$true; break } ^
+     } catch {} ^
+     Start-Sleep -Seconds 2 ^
+   } ^
+   if(-not $ok){ Write-Host 'App not ready on host:18080'; exit 1 }"
 '''
     }
 }
+
 
 
 
@@ -102,10 +121,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 90; $i+
                 bat 'docker compose -f %COMPOSE_FILE% ps'
 
         bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok=$false; for($i=0;$i -lt 60;$i++){ $cmd='docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \"curl -sS -I http://app:8080/api/public/ping\"'; $out = cmd /c $cmd 2>&1; if($out){ Write-Host $out }; if($out -match 'HTTP/.* 200'){ Write-Host 'Selenium can reach app:8080'; $ok=$true; break }; Start-Sleep 2 }; if($ok){ exit 0 } else { Write-Host 'Selenium cannot reach app:8080'; exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ok=$false; ^
+   for($i=0;$i -lt 60;$i++){ ^
+     try { ^
+       $out = & docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc 'curl -sS -I http://app:8080/api/public/ping'; ^
+       if($out){ $out | ForEach-Object { Write-Host $_ } } ^
+       if($out -match 'HTTP/.* 200'){ Write-Host 'Selenium can reach app:8080'; $ok=$true; break } ^
+     } catch { ^
+       Write-Host $_ ^
+     } ^
+     Start-Sleep -Seconds 2 ^
+   } ^
+   if($ok){ exit 0 } else { Write-Host 'Selenium cannot reach app:8080'; exit 1 }"
 '''
     }
 }
+
 
 
 
