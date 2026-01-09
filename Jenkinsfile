@@ -80,19 +80,15 @@ pipeline {
 
         stage('5-Run System on Docker') {
             steps {
-                // Up
-    bat 'docker compose -f %COMPOSE_FILE% up -d --build'
-
-    // Debug: servisleri göster
+                bat 'docker compose -f %COMPOSE_FILE% up -d --build'
     bat 'docker compose -f %COMPOSE_FILE% ps'
 
-    // 1) Selenium Grid ready (host -> localhost:14444/status)
+    // Selenium Grid ready (host)
     bat '''
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ok=$false; for($i=0;$i -lt 60;$i++){ try { $r=Invoke-WebRequest 'http://localhost:14444/status' -UseBasicParsing -TimeoutSec 2; if($r -and $r.StatusCode -eq 200){ Write-Host ('Grid ready: ' + $r.StatusCode); $ok=$true; break } } catch {} Start-Sleep -Seconds 2 }; if(-not $ok){ Write-Host 'Grid not ready'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color selenium\"; exit 1 }"
 '''
 
-    // 2) App ready (host -> localhost:18080/api/public/ping)
-    //    - burada 18080 host port mapping'i; Jenkins host üzerinden garanti check
+    // App ready (host)
     bat '''
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $ok=$false; for($i=0;$i -lt 120;$i++){ try { $r=Invoke-WebRequest 'http://localhost:18080/api/public/ping' -UseBasicParsing -TimeoutSec 2; if($r -and $r.StatusCode -eq 200){ Write-Host ('App ready on host:18080: ' + $r.StatusCode); $ok=$true; break } } catch {} Start-Sleep -Seconds 2 }; if(-not $ok){ Write-Host 'App not ready on host:18080'; cmd /c \"docker compose -f %COMPOSE_FILE% logs --no-color app\"; cmd /c \"docker compose -f %COMPOSE_FILE% ps\"; exit 1 }"
 '''
@@ -104,46 +100,69 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='
 
 
 
+
         stage('5.5-Smoke: Selenium -> App network check') {
             steps {
-                // Görsel debug
-    bat 'docker compose -f %COMPOSE_FILE% ps'
+                bat 'docker compose -f %COMPOSE_FILE% ps'
 
-    // 1) Selenium container içinde curl var mı? Yoksa kur. Sonra app:8080 ping dene.
-    //    90 deneme * 2sn = 180sn max
+    // 1) Workspace'e bir smoke.ps1 yaz (tırnak derdi biter)
     bat '''
-docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc "set -e;
-  (command -v curl >/dev/null 2>&1) || (apt-get update >/dev/null 2>&1 && apt-get install -y curl >/dev/null 2>&1) || (apk add --no-cache curl >/dev/null 2>&1) || true;
-  i=0;
-  while [ $i -lt 90 ]; do
-    echo \"[try $i] curl -i http://app:8080/api/public/ping\";
-    out=$(curl -sS -i http://app:8080/api/public/ping 2>&1 || true);
-    echo \"$out\";
-    echo \"$out\" | grep -E \"HTTP/[^ ]+ 200\" >/dev/null 2>&1 && echo \"OK: Selenium can reach app:8080\" && exit 0;
-    i=$((i+1));
-    sleep 2;
-  done;
-  echo \"FAIL: Selenium cannot reach app:8080\";
-  exit 1"
-'''
+powershell -NoProfile -ExecutionPolicy Bypass -Command @'
+$ErrorActionPreference = "SilentlyContinue"
+$compose = $env:COMPOSE_FILE
 
-    // 2) (opsiyonel ama faydalı) app UI sayfası dönüyor mu?
-    bat '''
-docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc "set -e;
-  (command -v curl >/dev/null 2>&1) || true;
-  echo '[ui check] http://app:8080/ui/login.html?role=OWNER';
-  curl -sS -I http://app:8080/ui/login.html?role=OWNER || true"
+Write-Host ("Compose file: " + $compose)
+
+function ExecSelenium([string]$innerCmd) {
+  # innerCmd linux shell komutu olacak, container içinde çalışacak
+  & docker compose -f $compose exec -T selenium sh -lc $innerCmd 2>&1
+}
+
+$ok = $false
+
+for($i=0; $i -lt 90; $i++){
+  Write-Host ("[try " + $i + "] curl -i http://app:8080/api/public/ping")
+  $out = ExecSelenium "curl -sS -i http://app:8080/api/public/ping || true"
+  if($out){ $out | ForEach-Object { Write-Host $_ } }
+
+  if($out -match "HTTP/[^ ]+ 200"){
+    Write-Host "OK: Selenium can reach app:8080"
+    $ok = $true
+    break
+  }
+
+  Start-Sleep -Seconds 2
+}
+
+if(-not $ok){
+  Write-Host "FAIL: Selenium cannot reach app:8080"
+  Write-Host "---- selenium logs ----"
+  & docker compose -f $compose logs --no-color selenium | Out-Host
+  Write-Host "---- app logs ----"
+  & docker compose -f $compose logs --no-color app | Out-Host
+  exit 1
+}
+
+# (Opsiyonel) UI check (başarısız olsa da pipeline'ı kırmasın)
+Write-Host "[ui check] http://app:8080/ui/login.html?role=OWNER"
+ExecSelenium "curl -sS -I 'http://app:8080/ui/login.html?role=OWNER' || true" | ForEach-Object { Write-Host $_ }
+
+exit 0
+'@ | Set-Content -Encoding UTF8 smoke.ps1
 '''
+    // 2) Script'i çalıştır
+    bat 'powershell -NoProfile -ExecutionPolicy Bypass -File smoke.ps1'
   }
 
   post {
                 always {
-                    // başarısız olursa teşhis için logları dök (job çıktısına)
-      bat 'docker compose -f %COMPOSE_FILE% logs --no-color app || ver>nul'
+                    bat 'docker compose -f %COMPOSE_FILE% logs --no-color app || ver>nul'
       bat 'docker compose -f %COMPOSE_FILE% logs --no-color selenium || ver>nul'
+      bat 'docker compose -f %COMPOSE_FILE% ps'
     }
   }
 }
+
 
 
 
