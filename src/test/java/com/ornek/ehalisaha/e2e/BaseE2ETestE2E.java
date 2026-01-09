@@ -175,18 +175,21 @@ public abstract class BaseE2ETestE2E {
     protected void ensureFacilityExists(String name, String addr) {
         By selLoc = By.id("ownerFacilitySel");
 
-        // owner panel elementleri gelsin
+        // Owner panel elementleri DOM'a gelsin
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facName")));
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facAddr")));
         wait.until(ExpectedConditions.presenceOfElementLocated(selLoc));
 
-        // 1) Zaten var mı?
+        // 1) Zaten var mı?  (select.getText yerine option'ları gez)
         try {
-            WebElement sel = driver.findElement(selLoc);
-            String txt = sel.getText();
-            if (txt != null && txt.contains(name)) {
-                selectByContainsText(selLoc, name);
-                return;
+            WebElement selEl = driver.findElement(selLoc);
+            Select sel = new Select(selEl);
+            for (WebElement opt : sel.getOptions()) {
+                String t = opt.getText();
+                if (t != null && t.contains(name)) {
+                    selectByContainsText(selLoc, name);
+                    return;
+                }
             }
         } catch (Exception ignored) {}
 
@@ -195,27 +198,53 @@ public abstract class BaseE2ETestE2E {
         type(By.id("facAddr"), addr);
 
         // ✅ HTML'de birebir var: onclick="UI.createFacility()"
-        By btn = By.xpath("//button[contains(@onclick,'UI.createFacility')]");
+        By btn = By.cssSelector("button[onclick*='UI.createFacility']");
 
         WebElement button = wait.until(ExpectedConditions.elementToBeClickable(btn));
-        ((org.openqa.selenium.JavascriptExecutor) driver)
-                .executeScript("arguments[0].scrollIntoView({block:'center'});", button);
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", button);
 
-        try { button.click(); }
-        catch (Exception e) {
-            ((org.openqa.selenium.JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
+        try {
+            button.click();
+        } catch (Exception e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
         }
 
-        // 3) Dropdown’da görünmesini bekle
+        // 3) Önce ownerOut'ta başarı/hata sinyali gelsin (API çağrısı sonuçlanmış mı?)
         wait.until(d -> {
             try {
-                String t = d.findElement(selLoc).getText();
-                return t != null && t.contains(name);
+                String out = d.findElement(By.id("ownerOut")).getText();
+                if (out == null) return false;
+                // başarı veya hata mesajlarından biri gelince devam
+                return out.contains("oluşturuldu") || out.contains("hatası") || out.contains("error") || out.contains("Error");
             } catch (Exception e) {
                 return false;
             }
         });
 
+        // Eğer hata yazdıysa, test daha anlamlı şekilde patlasın
+        try {
+            String out = driver.findElement(By.id("ownerOut")).getText();
+            if (out != null && (out.contains("hatası") || out.toLowerCase().contains("error"))) {
+                fail("Facility create failed. ownerOut=" + out);
+            }
+        } catch (Exception ignored) {}
+
+        // 4) Dropdown’da option olarak görünmesini bekle (en doğru sinyal bu)
+        wait.until(d -> {
+            try {
+                WebElement selEl = d.findElement(selLoc);
+                Select s = new Select(selEl);
+                for (WebElement opt : s.getOptions()) {
+                    String t = opt.getText();
+                    if (t != null && t.contains(name)) return true;
+                }
+                return false;
+            } catch (Exception e) {
+                return false;
+            }
+        });
+
+        // 5) Seç
         selectByContainsText(selLoc, name);
     }
 
