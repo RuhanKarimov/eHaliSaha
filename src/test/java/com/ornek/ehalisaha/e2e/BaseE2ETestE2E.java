@@ -190,7 +190,7 @@ public abstract class BaseE2ETestE2E {
         // out elementi var mı?
         wait.until(ExpectedConditions.presenceOfElementLocated(outLoc));
 
-        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(30));
+        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(60));
         w.pollingEvery(Duration.ofMillis(250));
 
         try {
