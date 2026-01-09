@@ -20,61 +20,8 @@ import java.nio.file.Path;
 
 public abstract class BaseE2ETestE2E {
 
-    protected RemoteWebDriver driver;
+    protected WebDriver driver;
     protected WebDriverWait wait;
-
-    private static final Duration DEFAULT_WAIT = Duration.ofSeconds(20);
-
-    @BeforeEach
-    void setup() throws Exception {
-        String selenium = seleniumUrl();
-        String base = baseUrl();
-
-        System.out.println("CHROME_ARGS=" + chromeArgs());
-        System.out.println("BASE_URL=" + base);
-        System.out.println("SELENIUM_URL=" + selenium);
-
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--window-size=1280,900");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--ignore-certificate-errors");
-        options.addArguments("--allow-insecure-localhost");
-        options.setAcceptInsecureCerts(true);
-
-        // extra args from env (split by ;)
-        String extra = chromeArgs();
-        if (extra != null && !extra.isBlank()) {
-            for (String a : extra.split(";")) {
-                a = a.trim();
-                if (!a.isBlank()) options.addArguments(a);
-            }
-        }
-
-        driver = new RemoteWebDriver(new URL(selenium), options);
-        wait = new WebDriverWait(driver, DEFAULT_WAIT);
-        wait.pollingEvery(Duration.ofMillis(250));
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (driver != null) driver.quit();
-    }
-
-    // ---------- ENV helpers ----------
-
-    protected String seleniumUrl() {
-        String env = System.getenv("SELENIUM_URL");
-        if (env != null && !env.isBlank()) return env;
-        return "http://localhost:4444/wd/hub";
-    }
-
-    protected String chromeArgs() {
-        String env = System.getenv("CHROME_ARGS");
-        if (env != null) return env;
-        return "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost";
-    }
 
     protected String baseUrl() {
         String env = System.getenv("BASE_URL");
@@ -91,56 +38,126 @@ public abstract class BaseE2ETestE2E {
         return "http://app:8080";
     }
 
-    protected String loginUrlOwner() {
-        return baseUrl() + "/ui/login.html?role=OWNER";
+    protected String seleniumUrl() {
+        return System.getenv().getOrDefault("SELENIUM_URL", "http://selenium:4444/wd/hub");
     }
 
-    // ---------- Small UI actions ----------
+    @BeforeEach
+    void setUp() throws Exception {
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless=new");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--window-size=1280,900");
+
+        // SSL/HTTPS zorlamalarını ez
+        options.setAcceptInsecureCerts(true);
+        options.addArguments("--ignore-certificate-errors");
+        options.addArguments("--allow-insecure-localhost");
+
+        // Chrome 143+ için daha geniş disable listesi
+        options.addArguments("--disable-features="
+                + "HttpsOnlyMode,"
+                + "UpgradeInsecureRequests,"
+                + "HttpsFirstMode,"
+                + "HttpsFirstModeV2,"
+                + "HttpsUpgrades,"
+                + "AutomaticHttpsUpgrades");
+
+        // ekstra stabilite
+        options.addArguments("--disable-gpu");
+        options.addArguments("--no-first-run");
+        options.addArguments("--no-default-browser-check");
+
+        System.out.println("CHROME_ARGS=" + System.getenv("CHROME_ARGS"));
+        System.out.println("BASE_URL=" + baseUrl());
+        System.out.println("SELENIUM_URL=" + seleniumUrl());
+
+        // ✅ Jenkins ile verdiğin CHROME_ARGS env'ini uygula (sen ; ile ayırıyorsun)
+        String raw = System.getenv("CHROME_ARGS");
+        if (raw != null && !raw.isBlank()) {
+            for (String part : raw.split(";")) {
+                String arg = part.trim();
+                if (!arg.isEmpty()) options.addArguments(arg);
+            }
+        }
+
+        driver = new RemoteWebDriver(new URL(seleniumUrl()), options);
+        wait = new WebDriverWait(driver, Duration.ofSeconds(20));
+    }
+
+
+
+    @AfterEach
+    void tearDown() {
+        try {
+            if (driver != null) {
+                // screenshot
+                try {
+                    File src = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+                    File out = new File("e2e-reports/last.png");
+                    out.getParentFile().mkdirs();
+                    if (!src.renameTo(out)) {
+                        // renameTo bazı ortamlarda false dönebilir, kopyalama fallback
+                        Files.copy(src.toPath(), out.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } catch (Exception ignored) {}
+
+                // page source
+                try {
+                    String html = driver.getPageSource();
+                    Path p = Path.of("e2e-reports/last.html");
+                    Files.createDirectories(p.getParent());
+                    Files.writeString(p, html, StandardCharsets.UTF_8);
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
+        try { if (driver != null) driver.quit(); } catch (Exception ignored) {}
+    }
+
+    protected void go(String path) {
+        String url = baseUrl() + (path.startsWith("/") ? path : ("/" + path));
+        System.out.println("NAVIGATE=" + url);
+        driver.get(url);
+    }
 
     protected WebElement byId(String id) {
-        return wait.until(ExpectedConditions.presenceOfElementLocated(By.id(id)));
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(id)));
     }
 
-    protected void click(By by) {
-        wait.until(ExpectedConditions.elementToBeClickable(by)).click();
+    protected void click(By locator) {
+        wait.until(ExpectedConditions.elementToBeClickable(locator)).click();
     }
 
-    protected void type(By by, String text) {
-        WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(by));
+    protected void type(By locator, String text) {
+        WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
         el.clear();
         el.sendKeys(text);
     }
 
-    protected void navigate(String url) {
-        System.out.println("NAVIGATE=" + url);
-        driver.navigate().to(url);
-    }
-
-    protected void selectByContainsText(By selectBy, String contains) {
-        WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(selectBy));
-        Select sel = new Select(el);
-        for (WebElement opt : sel.getOptions()) {
-            if (opt.getText() != null && opt.getText().contains(contains)) {
-                sel.selectByVisibleText(opt.getText());
+    protected void selectByContainsText(By selectLocator, String containsText) {
+        WebElement sel = wait.until(ExpectedConditions.visibilityOfElementLocated(selectLocator));
+        Select s = new Select(sel);
+        for (WebElement opt : s.getOptions()) {
+            if (opt.getText() != null && opt.getText().contains(containsText)) {
+                s.selectByVisibleText(opt.getText());
                 return;
             }
         }
-        fail("Select option not found containing: " + contains);
+        fail("Option not found containing: " + containsText);
     }
-
-    // ---------- Login helpers ----------
 
     protected void loginOwner() {
-        login("owner1", "owner123", "/ui/owner.html");
+        login("OWNER", "owner1", "owner123", "/ui/owner.html");
     }
 
-    protected void login(String username, String password, String expectedPath) {
-        navigate(baseUrl() + "/ui/login.html?role=OWNER");
+    protected void loginMember() {
+        login("MEMBER", "member1", "member123", "/ui/member.html");
+    }
 
-        // login form
-        wait.until(ExpectedConditions.presenceOfElementLocated(By.id("u")));
-        wait.until(ExpectedConditions.presenceOfElementLocated(By.id("p")));
-        wait.until(ExpectedConditions.presenceOfElementLocated(By.id("btn")));
+    protected void login(String role, String username, String password, String expectedPath) {
+        go("/ui/login.html?role=" + role);
 
         type(By.id("u"), username);
         type(By.id("p"), password);
@@ -155,60 +172,6 @@ public abstract class BaseE2ETestE2E {
         assertTrue(out.getText().contains(expected));
     }
 
-    // ---------- Robust helpers (fix for Jenkins flakiness) ----------
-
-    private String safeText(By by) {
-        try {
-            return driver.findElement(by).getText();
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    private String safeText(WebDriver d, By by) {
-        try {
-            return d.findElement(by).getText();
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    private boolean isErrorLike(String s) {
-        if (s == null) return false;
-        String t = s.toLowerCase();
-        return t.contains("hata") || t.contains("error") || t.contains("exception") || t.contains("failed") || t.contains("invalid");
-    }
-
-    private boolean hasOptionContaining(By selectBy, String contains) {
-        return hasOptionContaining(driver, selectBy, contains);
-    }
-
-    private boolean hasOptionContaining(WebDriver d, By selectBy, String contains) {
-        try {
-            WebElement selEl = d.findElement(selectBy);
-            Select sel = new Select(selEl);
-            for (WebElement opt : sel.getOptions()) {
-                String t = opt.getText();
-                if (t != null && t.contains(contains)) return true;
-            }
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private void clickSmart(By by) {
-        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(by));
-        try {
-            el.click();
-        } catch (ElementClickInterceptedException ice) {
-            // overlay vs: JS click fallback
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
-        }
-    }
-
-    // ---------- E2E steps ----------
-
     protected void ensureFacilityExists(String name, String addr) {
         By selLoc = By.id("ownerFacilitySel");
 
@@ -217,56 +180,77 @@ public abstract class BaseE2ETestE2E {
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facAddr")));
         wait.until(ExpectedConditions.presenceOfElementLocated(selLoc));
 
-        // 1) Zaten var mı?
-        if (hasOptionContaining(selLoc, name)) {
-            selectByContainsText(selLoc, name);
-            return;
-        }
+        // 1) Zaten var mı?  (select.getText yerine option'ları gez)
+        try {
+            WebElement selEl = driver.findElement(selLoc);
+            Select sel = new Select(selEl);
+            for (WebElement opt : sel.getOptions()) {
+                String t = opt.getText();
+                if (t != null && t.contains(name)) {
+                    selectByContainsText(selLoc, name);
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
 
         // 2) Yoksa oluştur
         type(By.id("facName"), name);
         type(By.id("facAddr"), addr);
 
-        // HTML: onclick="UI.createFacility()"
+        // ✅ HTML'de birebir var: onclick="UI.createFacility()"
         By btn = By.cssSelector("button[onclick*='UI.createFacility']");
-        clickSmart(btn);
 
-        /*
-          ⚠️ ÖNEMLİ:
-          UI tarafında "Facility oluşturuldu ✅" mesajı çok kısa süre görünüp,
-          hemen sonra "Facility değişti... ✅" gibi başka bir notice ile overwrite olabiliyor.
-          Bu yüzden ownerOut'ta "oluşturuldu" aramak flaky.
-          En güvenilir sinyal: dropdown option'ın gelmesi.
-         */
+        WebElement button = wait.until(ExpectedConditions.elementToBeClickable(btn));
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", button);
 
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(60));
-        longWait.pollingEvery(Duration.ofMillis(300));
-
-        longWait.until(d -> {
-            // başarı: select option geldi
-            if (hasOptionContaining(d, selLoc, name)) return true;
-
-            // hata/uyarı: ownerOut bir şeyler yazdıysa test anlamlı patlasın
-            String out = safeText(d, By.id("ownerOut"));
-            return isErrorLike(out);
-        });
-
-        // Hata/uyarı geldi ama option yoksa fail et
-        if (!hasOptionContaining(selLoc, name)) {
-            String out = safeText(By.id("ownerOut"));
-            fail("Facility oluşturulamadı veya dropdown'a düşmedi. ownerOut=" + out);
+        try {
+            button.click();
+        } catch (Exception e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
         }
 
-        // 3) Seç
+        // 3) Önce ownerOut'ta başarı/hata sinyali gelsin (API çağrısı sonuçlanmış mı?)
+        wait.until(d -> {
+            try {
+                String out = d.findElement(By.id("ownerOut")).getText();
+                if (out == null) return false;
+                // başarı veya hata mesajlarından biri gelince devam
+                return out.contains("oluşturuldu") || out.contains("hatası") || out.contains("error") || out.contains("Error");
+            } catch (Exception e) {
+                return false;
+            }
+        });
+
+        // Eğer hata yazdıysa, test daha anlamlı şekilde patlasın
+        try {
+            String out = driver.findElement(By.id("ownerOut")).getText();
+            if (out != null && (out.contains("hatası") || out.toLowerCase().contains("error"))) {
+                fail("Facility create failed. ownerOut=" + out);
+            }
+        } catch (Exception ignored) {}
+
+        // 4) Dropdown’da option olarak görünmesini bekle (en doğru sinyal bu)
+        wait.until(d -> {
+            try {
+                WebElement selEl = d.findElement(selLoc);
+                Select s = new Select(selEl);
+                for (WebElement opt : s.getOptions()) {
+                    String t = opt.getText();
+                    if (t != null && t.contains(name)) return true;
+                }
+                return false;
+            } catch (Exception e) {
+                return false;
+            }
+        });
+
+        // 5) Seç
         selectByContainsText(selLoc, name);
     }
 
     protected void ensurePitchExists(String pitchName) {
         type(By.id("pitchName"), pitchName);
-
-        // HTML: onclick="UI.createPitch()"
-        By btn = By.cssSelector("button[onclick*='UI.createPitch']");
-        clickSmart(btn);
+        click(By.xpath("//button[normalize-space(.)='Ekle']"));
 
         wait.until(d -> {
             try {
@@ -294,13 +278,9 @@ public abstract class BaseE2ETestE2E {
             }
         }
 
-        type(By.id("priceInput"), String.valueOf(price));
+        type(By.id("priceValue"), String.valueOf(price));
+        click(By.xpath("//button[contains(normalize-space(.), 'Kaydet')]"));
 
-        // HTML: onclick="UI.savePrice()"
-        By btn = By.cssSelector("button[onclick*='UI.savePrice']");
-        clickSmart(btn);
-
-        // pricing box should reflect
         wait.until(d -> {
             try {
                 return d.findElement(By.id("pricingBox")).getText().contains(String.valueOf(price));
@@ -317,63 +297,20 @@ public abstract class BaseE2ETestE2E {
         wait.until(d -> d.findElement(By.id("ownerOut")).getText().contains("Slot"));
     }
 
-    protected void maybeUploadEvidence(String name) {
-        // optional: if want to store page source / screenshot, you can enable
-        // currently left as no-op
+    protected void memberSelectFacilityAndPitch(String facilityName, String pitchName) {
+        selectByContainsText(By.id("facilitySel"), facilityName);
+        wait.until(d -> d.findElement(By.id("pitchSel")).getText().contains(pitchName));
+        selectByContainsText(By.id("pitchSel"), pitchName);
     }
 
-    // Helper: click first free slot if exists and return label
-    protected String pickFirstFreeSlotAndReturnLabel() {
-        List<WebElement> btns = driver.findElements(By.cssSelector("#slotGrid button"));
-        if (btns.isEmpty()) fail("No slots grid buttons found");
-
-        for (WebElement b : btns) {
-            String cls = b.getAttribute("class");
-            boolean disabled = Boolean.parseBoolean(String.valueOf(b.getAttribute("disabled")));
-            if (disabled) continue;
-
-            // heuristic: skip reserved/closed ones
-            if (cls != null) {
-                String c = cls.toLowerCase();
-                if (c.contains("disabled") || c.contains("closed") || c.contains("reserved")) continue;
-            }
-
-            String label = b.getText();
-            b.click();
-            return label;
-        }
-
-        // if reached, no free range
-        fail("No free slots found");
-        return "";
-    }
-
-    // Optional debug dump (kept small, safe for CI)
-    protected void dumpDebug(String prefix) {
-        try {
-            String url = driver.getCurrentUrl();
-            String out = safeText(By.id("ownerOut"));
-            String html = driver.getPageSource();
-
-            Path dir = Path.of("e2e-reports");
-            Files.createDirectories(dir);
-
-            Files.writeString(dir.resolve(prefix + "_url.txt"), url, StandardCharsets.UTF_8);
-            Files.writeString(dir.resolve(prefix + "_ownerOut.txt"), out, StandardCharsets.UTF_8);
-
-            // page source can be large; still useful
-            Files.writeString(dir.resolve(prefix + "_page.html"), html, StandardCharsets.UTF_8);
-        } catch (Exception ignored) {
-        }
-    }
-
-    protected void takeScreenshot(String name) {
-        try {
-            File f = driver.getScreenshotAs(OutputType.FILE);
-            Path dir = Path.of("e2e-reports");
-            Files.createDirectories(dir);
-            Files.copy(f.toPath(), dir.resolve(name + ".png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        } catch (Exception ignored) {
-        }
+    protected String pickFirstFreeSlotLabel() {
+        WebElement grid = byId("slotGrid");
+        // buttons with class 'slot' and NOT 'slot-full'
+        List<WebElement> btns = grid.findElements(By.cssSelector("button.slot:not(.slot-full)"));
+        if (btns.isEmpty()) fail("No free slots found");
+        WebElement b = btns.get(0);
+        String label = b.getText(); // includes time range
+        b.click();
+        return label;
     }
 }
