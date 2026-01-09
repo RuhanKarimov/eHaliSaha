@@ -184,7 +184,7 @@ exit 0
           "CHROME_ARGS=--disable-features=HttpsOnlyMode,UpgradeInsecureRequests;--ignore-certificate-errors;--allow-insecure-localhost"
         ]) {
                             // cmd.exe tarafında quoting derdi olmasın diye tek komut
-          bat /@echo off
+          bat "/@echo off"
           bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario01OwnerLoginTestE2E test"
         }
       }
