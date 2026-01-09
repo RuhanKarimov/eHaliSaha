@@ -3,19 +3,11 @@ def chromeArgsCommon() {
 }
 
 def e2eEnv(String chromeArgs) {
-    if (isUnix()) {
-        return [
-      "BASE_URL=http://app:8080",
-      "SELENIUM_URL=http://selenium:4444/wd/hub",
-      "CHROME_ARGS=${chromeArgs}"
-    ]
-  } else {
-        return [
+    return [
       "BASE_URL=http://host.docker.internal:8080",
       "SELENIUM_URL=http://localhost:14444/wd/hub",
       "CHROME_ARGS=${chromeArgs}"
     ]
-  }
 }
 
 def runE2E(String testClass) {
