@@ -1,29 +1,3 @@
-def chromeArgsCommon() {
-    return "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-}
-
-def e2eEnv(String chromeArgs) {
-    return [
-      "BASE_URL=http://host.docker.internal:8080",
-      "SELENIUM_URL=http://localhost:14444/wd/hub",
-      "CHROME_ARGS=${chromeArgs}"
-    ]
-}
-
-def runE2E(String testClass) {
-    def chromeArgs = chromeArgsCommon()
-  def envs = e2eEnv(chromeArgs)
-
-  withEnv(envs) {
-        if (isUnix()) {
-            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=${testClass} test"
-    } else {
-            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=${testClass} test"
-    }
-  }
-}
-
-
 
 pipeline {
     agent any
@@ -242,211 +216,98 @@ exit 0
         stage('6.3-E2E Scenario 3: Owner Setup Slots Pitch Pricing') {
             steps {
                 script {
-                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-
-      if (isUnix()) {
-                        withEnv([
-          "BASE_URL=http://app:8080",
-          "SELENIUM_URL=http://selenium:4444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario03OwnerSetupSlotsPitchPricingTestE2E test"
+                    if (isUnix()) {
+                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario03OwnerSetupTestE2E test"
+                    } else {
+                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario03OwnerSetupTestE2E test"
+                    }
+                }
+            }
         }
-      } else {
-                        withEnv([
-          "BASE_URL=http://host.docker.internal:8080",
-          "SELENIUM_URL=http://localhost:14444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario03OwnerSetupSlotsPitchPricingTestE2E test"
-        }
-      }
-    }
-  }
-}
 
-stage('6.4-E2E Scenario 4: Member Login') {
+        stage('6.4-E2E Scenario 4: Member Login') {
             steps {
                 script {
-                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-
-      if (isUnix()) {
-                        withEnv([
-          "BASE_URL=http://app:8080",
-          "SELENIUM_URL=http://selenium:4444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario04MemberLoginTestE2E test"
+                    if (isUnix()) {
+                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario04MemberLoginTestE2E test"
+                    } else {
+                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario04MemberLoginTestE2E test"
+                    }
+                }
+            }
         }
-      } else {
-                        withEnv([
-          "BASE_URL=http://host.docker.internal:8080",
-          "SELENIUM_URL=http://localhost:14444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario04MemberLoginTestE2E test"
-        }
-      }
-    }
-  }
-}
 
-stage('6.5-E2E Scenario 5: Member Sends Membership Request') {
+        stage('6.5-E2E Scenario 5: Member Sends Membership Request') {
             steps {
                 script {
-                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-
-      if (isUnix()) {
-                        withEnv([
-          "BASE_URL=http://app:8080",
-          "SELENIUM_URL=http://selenium:4444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario05MemberSendsMembershipRequestTestE2E test"
+                    if (isUnix()) {
+                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario05MemberSendMembershipRequestTestE2E test"
+                    } else {
+                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario05MemberSendMembershipRequestTestE2E test"
+                    }
+                }
+            }
         }
-      } else {
-                        withEnv([
-          "BASE_URL=http://host.docker.internal:8080",
-          "SELENIUM_URL=http://localhost:14444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario05MemberSendsMembershipRequestTestE2E test"
-        }
-      }
-    }
-  }
-}
 
-stage('6.6-E2E Scenario 6: Owner Approves Membership') {
+        stage('6.6-E2E Scenario 6: Owner Approves Membership') {
             steps {
                 script {
-                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-
-      if (isUnix()) {
-                        withEnv([
-          "BASE_URL=http://app:8080",
-          "SELENIUM_URL=http://selenium:4444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario06OwnerApprovesMembershipRequestTestE2E test"
+                    if (isUnix()) {
+                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario06OwnerApproveMembershipRequestTestE2E test"
+                    } else {
+                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario06OwnerApproveMembershipRequestTestE2E test"
+                    }
+                }
+            }
         }
-      } else {
-                        withEnv([
-          "BASE_URL=http://host.docker.internal:8080",
-          "SELENIUM_URL=http://localhost:14444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario06OwnerApprovesMembershipRequestTestE2E test"
-        }
-      }
-    }
-  }
-}
 
-stage('6.7-E2E Scenario 7: Member Makes Reservation') {
+        stage('6.7-E2E Scenario 7: Member Makes Reservation') {
             steps {
                 script {
-                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-
-      if (isUnix()) {
-                        withEnv([
-          "BASE_URL=http://app:8080",
-          "SELENIUM_URL=http://selenium:4444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario07MemberMakesReservationTestE2E test"
+                    if (isUnix()) {
+                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario07MemberMakesReservationTestE2E test"
+                    } else {
+                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario07MemberMakesReservationTestE2E test"
+                    }
+                }
+            }
         }
-      } else {
-                        withEnv([
-          "BASE_URL=http://host.docker.internal:8080",
-          "SELENIUM_URL=http://localhost:14444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario07MemberMakesReservationTestE2E test"
-        }
-      }
-    }
-  }
-}
 
-stage('6.8-E2E Scenario 8: Double Booking Should Fail') {
+        stage('6.8-E2E Scenario 8: Double Booking Should Fail') {
             steps {
                 script {
-                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-
-      if (isUnix()) {
-                        withEnv([
-          "BASE_URL=http://app:8080",
-          "SELENIUM_URL=http://selenium:4444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario08DoubleBookingShouldFailTestE2E test"
+                    if (isUnix()) {
+                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario08DoubleBookingShouldFailTestE2E test"
+                    } else {
+                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario08DoubleBookingShouldFailTestE2E test"
+                    }
+                }
+            }
         }
-      } else {
-                        withEnv([
-          "BASE_URL=http://host.docker.internal:8080",
-          "SELENIUM_URL=http://localhost:14444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario08DoubleBookingShouldFailTestE2E test"
-        }
-      }
-    }
-  }
-}
 
-stage('6.9-E2E Scenario 9: Owner Sees Reservation List') {
+        stage('6.9-E2E Scenario 9: Owner Sees Reservation List') {
             steps {
                 script {
-                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-
-      if (isUnix()) {
-                        withEnv([
-          "BASE_URL=http://app:8080",
-          "SELENIUM_URL=http://selenium:4444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario09OwnerSeesReservationInListTestE2E test"
+                    if (isUnix()) {
+                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario09OwnerSeesReservationInListTestE2E test"
+                    } else {
+                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario09OwnerSeesReservationInListTestE2E test"
+                    }
+                }
+            }
         }
-      } else {
-                        withEnv([
-          "BASE_URL=http://host.docker.internal:8080",
-          "SELENIUM_URL=http://localhost:14444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario09OwnerSeesReservationInListTestE2E test"
-        }
-      }
-    }
-  }
-}
 
-stage('6.10-E2E Scenario 10: Membership Already Active Should Fail') {
+        stage('6.10-E2E Scenario 10: Membership Already Active Should Fail') {
             steps {
                 script {
-                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
-
-      if (isUnix()) {
-                        withEnv([
-          "BASE_URL=http://app:8080",
-          "SELENIUM_URL=http://selenium:4444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario10MembershipAlreadyActiveShouldFailTestE2E test"
+                    if (isUnix()) {
+                        sh "BASE_URL=${env.BASE_URL} SELENIUM_URL=${env.SELENIUM_URL} ./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario10MembershipAlreadyActiveShouldFailTestE2E test"
+                    } else {
+                        bat "set BASE_URL=%BASE_URL%&& set SELENIUM_URL=%SELENIUM_URL%&& .\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario10MembershipAlreadyActiveShouldFailTestE2E test"
+                    }
+                }
+            }
         }
-      } else {
-                        withEnv([
-          "BASE_URL=http://host.docker.internal:8080",
-          "SELENIUM_URL=http://localhost:14444/wd/hub",
-          "CHROME_ARGS=${chromeArgs}"
-        ]) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario10MembershipAlreadyActiveShouldFailTestE2E test"
-        }
-      }
-    }
-  }
-}
-
     }
 
     post {
