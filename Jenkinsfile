@@ -195,20 +195,17 @@ exit 0
         stage('6.2-E2E Scenario 2: Owner Creates Facility') {
             steps {
                 script {
-                    def envs = [
+                    def chromeArgs = "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
+      def envs = [
         "BASE_URL=${env.BASE_URL}",
         "SELENIUM_URL=${env.SELENIUM_URL}",
-        "CHROME_ARGS=--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
+        "CHROME_ARGS=${chromeArgs}"
       ]
 
       if (isUnix()) {
-                        withEnv(envs) {
-                            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario02OwnerCreateFacilityTestE2E test"
-        }
+                        withEnv(envs) { sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=Scenario02OwnerCreateFacilityTestE2E test" }
       } else {
-                        withEnv(envs) {
-                            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario02OwnerCreateFacilityTestE2E test"
-        }
+                        withEnv(envs) { bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=Scenario02OwnerCreateFacilityTestE2E test" }
       }
     }
   }

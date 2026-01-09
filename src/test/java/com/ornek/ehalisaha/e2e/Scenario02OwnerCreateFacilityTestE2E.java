@@ -9,7 +9,10 @@ public class Scenario02OwnerCreateFacilityTestE2E extends BaseE2ETestE2E {
     @Test
     void ownerCreatesFacility() {
         loginOwner();
-        ensureFacilityExists("Arena Halısaha", "Merkez / Malatya");
+
+        String facilityName = "Arena-" + System.currentTimeMillis();
+        ensureFacilityExists(facilityName, "Merkez / Malatya");
+
         assertTrue(byId("ownerFacilitySel").getText().contains("Arena Halısaha"));
     }
 }

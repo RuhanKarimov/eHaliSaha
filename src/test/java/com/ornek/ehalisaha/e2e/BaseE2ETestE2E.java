@@ -13,6 +13,11 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 public abstract class BaseE2ETestE2E {
 
     protected WebDriver driver;
@@ -82,8 +87,32 @@ public abstract class BaseE2ETestE2E {
     }
 
 
+
     @AfterEach
     void tearDown() {
+        try {
+            if (driver != null) {
+                // screenshot
+                try {
+                    File src = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+                    File out = new File("e2e-reports/last.png");
+                    out.getParentFile().mkdirs();
+                    if (!src.renameTo(out)) {
+                        // renameTo bazı ortamlarda false dönebilir, kopyalama fallback
+                        Files.copy(src.toPath(), out.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } catch (Exception ignored) {}
+
+                // page source
+                try {
+                    String html = driver.getPageSource();
+                    Path p = Path.of("e2e-reports/last.html");
+                    Files.createDirectories(p.getParent());
+                    Files.writeString(p, html, StandardCharsets.UTF_8);
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
         try { if (driver != null) driver.quit(); } catch (Exception ignored) {}
     }
 
@@ -144,24 +173,65 @@ public abstract class BaseE2ETestE2E {
     }
 
     protected void ensureFacilityExists(String name, String addr) {
-        // assumes owner page open
+        // 0) Owner page gerçekten açık mı? (elementler gelene kadar bekle)
+        wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facName")));
+        wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facAddr")));
+
         type(By.id("facName"), name);
         type(By.id("facAddr"), addr);
 
-        // click "Facility oluştur"
-        click(By.xpath("//button[contains(normalize-space(.), 'Facility oluştur')]"));
+        // 1) Butonu daha sağlam bul ve tıkla
+        By btn = By.xpath("//button[contains(translate(normalize-space(.), " +
+                "'İIŞŞĞĞÜÜÖÖÇÇ', 'iissgguuoocc'), 'facility') and " +
+                "contains(translate(normalize-space(.), " +
+                "'İIŞŞĞĞÜÜÖÖÇÇ', 'iissgguuoocc'), 'olustur')]");
 
-        // facility dropdown should contain it (either newly created or already exists)
-        wait.until(d -> {
+        // click() bazen intercepted olur, garanti için scroll + js-click fallback
+        WebElement button = wait.until(ExpectedConditions.elementToBeClickable(btn));
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", button);
+        try {
+            button.click();
+        } catch (Exception e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
+        }
+
+        // 2) Eğer UI’da ownerOut gibi bir mesaj alanı varsa, önce onun dolmasını beklemek çok işe yarar
+        try {
+            By out = By.id("ownerOut");
+            wait.until(d -> {
+                String t = d.findElement(out).getText();
+                return t != null && !t.isBlank();
+            });
+        } catch (Exception ignored) {
+            // ownerOut yoksa sorun değil
+        }
+
+        // 3) Dropdown'a düşmesini bekle, gerekirse refresh dene
+        By selLoc = By.id("ownerFacilitySel");
+
+        boolean found = false;
+        long end = System.currentTimeMillis() + 30000; // 30sn
+        while (System.currentTimeMillis() < end) {
             try {
-                WebElement sel = d.findElement(By.id("ownerFacilitySel"));
-                return sel.getText() != null && sel.getText().contains(name);
-            } catch (Exception e) {
-                return false;
-            }
-        });
+                WebElement sel = driver.findElement(selLoc);
+                String txt = sel.getText();
+                if (txt != null && txt.contains(name)) {
+                    found = true;
+                    break;
+                }
+            } catch (Exception ignored) { }
 
-        selectByContainsText(By.id("ownerFacilitySel"), name);
+            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+        }
+
+        if (!found) {
+            // bazı UI'lar select'i refresh sonrası doldurur
+            driver.navigate().refresh();
+            wait.until(ExpectedConditions.presenceOfElementLocated(selLoc));
+            wait.until(d -> d.findElement(selLoc).getText() != null && d.findElement(selLoc).getText().contains(name));
+        }
+
+        selectByContainsText(selLoc, name);
     }
 
     protected void ensurePitchExists(String pitchName) {
