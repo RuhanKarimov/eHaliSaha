@@ -102,10 +102,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "for($i=0; $i -lt 90; $i+
                 bat 'docker compose -f %COMPOSE_FILE% ps'
 
         bat '''
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok=$false; for($i=0;$i -lt 60;$i++){ $cmd='docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \"curl -sS -I http://app:8080/api/public/ping | head -n 1\"'; $out = cmd /c $cmd 2>&1; Write-Host $out; if($out -match '200'){ Write-Host 'Selenium can reach app:8080'; $ok=$true; break }; Start-Sleep 2 }; if($ok){ exit 0 } else { Write-Host 'Selenium cannot reach app:8080'; exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok=$false; for($i=0;$i -lt 60;$i++){ $cmd='docker compose -f %COMPOSE_FILE% exec -T selenium sh -lc \"curl -sS -I http://app:8080/api/public/ping\"'; $out = cmd /c $cmd 2>&1; if($out){ Write-Host $out }; if($out -match 'HTTP/.* 200'){ Write-Host 'Selenium can reach app:8080'; $ok=$true; break }; Start-Sleep 2 }; if($ok){ exit 0 } else { Write-Host 'Selenium cannot reach app:8080'; exit 1 }"
 '''
     }
 }
+
 
 
 
