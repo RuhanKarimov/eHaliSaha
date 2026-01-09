@@ -6,9 +6,10 @@ import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.support.ui.*;
+import org.openqa.selenium.support.ui.Select;
 
-import java.net.URL;
 import java.time.Duration;
+import java.net.URL;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -223,6 +224,13 @@ public abstract class BaseE2ETestE2E {
             return;
         }
 
+        // (opsiyonel ama faydalı) önce eski mesajı temizle
+        try {
+            ((JavascriptExecutor) driver).executeScript(
+                    "var el=document.getElementById('ownerOut'); if(el) el.textContent='';"
+            );
+        } catch (Exception ignored) {}
+
         // 2) Yoksa oluştur
         type(By.id("facName"), name);
         type(By.id("facAddr"), addr);
@@ -231,13 +239,13 @@ public abstract class BaseE2ETestE2E {
         By btn = By.cssSelector("button[onclick*='UI.createFacility']");
         clickSmart(btn);
 
-        /*
-          ⚠️ ÖNEMLİ:
-          UI tarafında "Facility oluşturuldu ✅" mesajı çok kısa süre görünüp,
-          hemen sonra "Facility değişti... ✅" gibi başka bir notice ile overwrite olabiliyor.
-          Bu yüzden ownerOut'ta "oluşturuldu" aramak flaky.
-          En güvenilir sinyal: dropdown option'ın gelmesi.
-         */
+    /*
+      ⚠️ ÖNEMLİ:
+      UI tarafında "Facility oluşturuldu ✅" mesajı çok kısa süre görünüp,
+      hemen sonra "Facility değişti... ✅" gibi başka bir notice ile overwrite olabiliyor.
+      Bu yüzden ownerOut'ta "oluşturuldu" aramak flaky.
+      En güvenilir sinyal: dropdown option'ın gelmesi.
+    */
 
         WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(60));
         longWait.pollingEvery(Duration.ofMillis(300));
@@ -246,15 +254,31 @@ public abstract class BaseE2ETestE2E {
             // başarı: select option geldi
             if (hasOptionContaining(d, selLoc, name)) return true;
 
-            // hata/uyarı: ownerOut bir şeyler yazdıysa test anlamlı patlasın
+            // hata/uyarı: ownerOut hata benzeri bir şey yazdıysa dur
             String out = safeText(d, By.id("ownerOut"));
             return isErrorLike(out);
         });
 
-        // Hata/uyarı geldi ama option yoksa fail et
+        // Hala dropdown'a düşmediyse: anlamlı debug ile patlat
         if (!hasOptionContaining(selLoc, name)) {
             String out = safeText(By.id("ownerOut"));
-            fail("Facility oluşturulamadı veya dropdown'a düşmedi. ownerOut=" + out);
+            String url = "";
+            try { url = driver.getCurrentUrl(); } catch (Exception ignored) {}
+
+            String opts = "";
+            try {
+                Select sel = new Select(driver.findElement(selLoc));
+                StringBuilder sb = new StringBuilder();
+                for (WebElement opt : sel.getOptions()) {
+                    sb.append("[").append(opt.getText()).append("] ");
+                }
+                opts = sb.toString().trim();
+            } catch (Exception ignored) {}
+
+            fail("Facility oluşturulamadı veya dropdown'a düşmedi."
+                    + " url=" + url
+                    + " ownerOut=" + out
+                    + " options=" + opts);
         }
 
         // 3) Seç
