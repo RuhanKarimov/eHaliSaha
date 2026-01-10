@@ -34,14 +34,18 @@ pipeline {
 
   options {
         timestamps()
-    skipDefaultCheckout(true)
-  }
+  skipDefaultCheckout(true)
+  disableConcurrentBuilds()   // aynı anda 2 build -> birbirinin dockerını silmesin
+}
+
 
   environment {
         COMPOSE_FILE = 'docker-compose.ci.yml'
-    MVN_ARGS = '-U -B -Dfile.encoding=UTF-8'
-    JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
-  }
+  COMPOSE_PROJECT_NAME = 'ehalisaha-ydg'   // <-- ekle (compose prefix sabit olur)
+  MVN_ARGS = '-U -B -Dfile.encoding=UTF-8'
+  JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
+}
+
 
   stages {
 
@@ -109,12 +113,20 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
+                        sh "docker compose -f ${env.COMPOSE_FILE} down -v --remove-orphans || true"
                         sh "docker compose -f ${env.COMPOSE_FILE} up -d --build"
-        sh "docker compose -f ${env.COMPOSE_FILE} ps"
-      } else {
+                        sh "docker compose -f ${env.COMPOSE_FILE} ps"
+
+                        sh "docker compose -f ${env.COMPOSE_FILE} up -d --build"
+                        sh "docker compose -f ${env.COMPOSE_FILE} ps"
+                    } else {
+                        bat 'docker compose -f %COMPOSE_FILE% down -v --remove-orphans || ver>nul'
+                        bat 'docker compose -f %COMPOSE_FILE% up -d --build'
+                        bat 'docker compose -f %COMPOSE_FILE% ps'
+
 
                         bat 'docker compose -f %COMPOSE_FILE% up -d --build'
-        bat 'docker compose -f %COMPOSE_FILE% ps'
+                        bat 'docker compose -f %COMPOSE_FILE% ps'
 
         // ✅ CMD quoting çilesi yok: PowerShell'i dosyadan çalıştır
         writeFile file: 'wait-ci.ps1', encoding: 'UTF-8', text: '''
@@ -277,16 +289,21 @@ exit 0
 
   post {
         always {
-            // E2E çıktıları (png/html/txt) arşivlenebilsin diye öneri:
-      archiveArtifacts artifacts: 'e2e-reports/*', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'e2e-reports/*', allowEmptyArchive: true
 
-      script {
+    // Docker AYAKTA KALSIN diye sadece durum/log basıyoruz
+    script {
                 if (isUnix()) {
-                    sh "docker compose -f ${env.COMPOSE_FILE} down -v || true"
-        } else {
-                    bat "docker compose -f %COMPOSE_FILE% down -v"
-        }
+                    sh "docker compose -f ${env.COMPOSE_FILE} ps || true"
+        sh "docker compose -f ${env.COMPOSE_FILE} logs --no-color --tail=80 app || true"
+        sh "docker compose -f ${env.COMPOSE_FILE} logs --no-color --tail=80 selenium || true"
+      } else {
+                    bat "docker compose -f %COMPOSE_FILE% ps"
+        bat "docker compose -f %COMPOSE_FILE% logs --no-color --tail=80 app || ver>nul"
+        bat "docker compose -f %COMPOSE_FILE% logs --no-color --tail=80 selenium || ver>nul"
       }
     }
   }
+}
+
 }
