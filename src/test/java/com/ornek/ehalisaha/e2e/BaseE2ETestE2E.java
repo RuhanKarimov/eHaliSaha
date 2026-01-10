@@ -13,10 +13,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.text.Normalizer;
 import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -266,37 +264,17 @@ public abstract class BaseE2ETestE2E {
     protected boolean isErrorLike(String s) {
         if (s == null) return false;
         String t = s.trim().toLowerCase();
-
-        return t.contains("hata")
-                || t.contains("error")
-                || t.contains("exception")
-                || t.contains("failed")
-                || t.contains("invalid")
-                || t.contains("başarısız")
-                || t.contains("yetkisiz")
-                || t.contains("unauthorized")
-                || t.contains("forbidden")
-                || t.contains("conflict")
-                || t.contains("409")
-                || t.contains("zaten")
-                || t.contains("mevcut")
-                || t.contains("exists")
-                || t.contains("already");
+        // UI "Hata: ..." diyor
+        return t.contains("hata") || t.contains("error") || t.contains("exception")
+                || t.contains("failed") || t.contains("invalid");
     }
-
 
     protected boolean isOkLike(String s) {
         if (s == null) return false;
-        String t = s.trim().toLowerCase();
-        return t.contains("ok")
-                || t.contains("başar")
-                || t.contains("oluştur")
-                || t.contains("created")
-                || t.contains("saved")
-                || t.contains("facilityid=")
-                || t.contains("id=");
+        String t = s.trim();
+        // UI "OK ✅ FacilityId=..." diyor
+        return t.contains("OK") || t.contains("FacilityId=");
     }
-
 
     protected boolean hasOptionContaining(By selectBy, String contains) {
         return hasOptionContaining(driver, selectBy, contains);
@@ -305,58 +283,15 @@ public abstract class BaseE2ETestE2E {
     protected boolean hasOptionContaining(WebDriver d, By selectBy, String contains) {
         try {
             Select sel = new Select(d.findElement(selectBy));
-            String want = fold(contains);
-
             for (WebElement opt : sel.getOptions()) {
                 String t = opt.getText();
-
-                // debug istiyorsan:
-                System.out.println("hasOptionContainingFold: " + fold(t));
-                System.out.println("containsRaw: " + contains);
-                System.out.println("containsCP : " + codepoints(contains));
-                System.out.println("optRaw     : " + t);
-                System.out.println("optCP      : " + codepoints(t));
-
-
-                // contains yerine startsWith daha mantıklı (option genelde "Name + ayırıcı + Address")
-                if (fold(t).startsWith(want)) return true;
+                if (t != null && t.contains(contains)) return true;
             }
             return false;
         } catch (Exception e) {
             return false;
         }
     }
-
-    private static String fold(String s) {
-        if (s == null) return "";
-        String x = Normalizer.normalize(s, Normalizer.Form.NFKC);
-
-        // NBSP ve türev boşlukları normal boşluğa çevir
-        x = x.replace('\u00A0', ' ')
-                .replace('\u202F', ' ')
-                .replace('\u2007', ' ');
-
-        // Jenkins konsolunda � gördüğün şey bazen gerçek metinde U+FFFD olabilir
-        // Biz bunu "i" gibi davranacak şekilde ele alıyoruz (özellikle Halısaha gibi yerlerde)
-        x = x.replace('\uFFFD', 'i');
-
-        // Türkçe i/ı problemleri (test verilerini stabil yapar)
-        x = x.replace('ı', 'i').replace('İ', 'I').replace('i', 'i');
-
-        // Fazla boşlukları tek boşluk yap
-        x = x.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
-        return x;
-    }
-
-    private static String codepoints(String s) {
-        if (s == null) return "null";
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            sb.append(String.format("U+%04X ", (int) s.charAt(i)));
-        }
-        return sb.toString().trim();
-    }
-
 
     protected String dumpOptions(By selectBy) {
         try {
@@ -433,53 +368,13 @@ public abstract class BaseE2ETestE2E {
         }
         clickSmart(btnCreate);
 
-        // 0) out önceki metni al (hatta temizle ki değişimi net görelim)
-        String outBeforeTmp = safeText(outLoc);
-        boolean cleared = false;
-        try {
-            WebElement outEl = driver.findElement(outLoc);
-            ((JavascriptExecutor) driver).executeScript("arguments[0].innerText='';", outEl);
-            cleared = true;
-        } catch (Exception ignored) {}
-
-        final String outBefore = cleared ? "" : outBeforeTmp;
-
-        // create click zaten yukarıda
-        // clickSmart(btnCreate);
-
-        // 1) “API döndü” sinyali: dropdown’a option düştü VEYA ownerOut değişti/doldu
+        // 3) ownerOut'ta "OK..." veya "Hata..." sinyali gelsin (API döndü mü?)
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
         apiWait.pollingEvery(Duration.ofMillis(250));
-
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
-        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
         apiWait.until(d -> {
-            // en güçlü sinyal: option geldi
-            if (hasOptionContaining(d, selLoc, name)) return true;
-
-            // ikinci sinyal: out doldu veya değişti (OK/Hata kelimesine bağlama)
             String out = safeText(d, outLoc);
-            out = out == null ? "" : out.trim();
-            return out.isBlank() && !out.equals(outBefore);
+            return isOkLike(out) || isErrorLike(out);
         });
-
 
         String outNow = safeText(outLoc);
 
@@ -653,3 +548,7 @@ public abstract class BaseE2ETestE2E {
         return "";
     }
 }
+
+
+
+
