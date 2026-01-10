@@ -305,7 +305,8 @@ public abstract class BaseE2ETestE2E {
             Select sel = new Select(d.findElement(selectBy));
             for (WebElement opt : sel.getOptions()) {
                 String t = opt.getText();
-                if (t != null && t.contains(contains)) return true;
+                System.out.println("hasOptionContaining:" + t);
+                if (t.contains(contains)) return true;
             }
             return false;
         } catch (Exception e) {
@@ -406,6 +407,25 @@ public abstract class BaseE2ETestE2E {
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
         apiWait.pollingEvery(Duration.ofMillis(250));
 
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
+        System.out.println("Facility Name: " + byId("ownerFacilitySel").getText());
         apiWait.until(d -> {
             // en güçlü sinyal: option geldi
             if (hasOptionContaining(d, selLoc, name)) return true;
