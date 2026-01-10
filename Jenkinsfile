@@ -9,7 +9,7 @@ def chromeArgsCommon() {
 def e2eEnv(String chromeArgs) {
     // ✅ Browser container’da -> app servisine docker network’ten eriş
   return [
-    "BASE_URL=https://app_https:8443",
+    "BASE_URL=http://app:8080",
     // ✅ Maven host’ta koşuyor -> selenium host portundan eriş
     "SELENIUM_URL=http://localhost:14444/wd/hub",
     "CHROME_ARGS=${chromeArgs}"
@@ -22,9 +22,9 @@ def runE2E(String testClass) {
 
   withEnv(envs) {
         if (isUnix()) {
-            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=${testClass} test"
+            sh "./mvnw ${env.MVN_ARGS} -P e2e -Dtest=${testClass} -De2e.baseUrl=$BASE_URL -De2e.seleniumUrl=$SELENIUM_URL test"
     } else {
-            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=${testClass} test"
+            bat ".\\mvnw.cmd %MVN_ARGS% -P e2e -Dtest=${testClass} -De2e.baseUrl=%BASE_URL% -De2e.seleniumUrl=%SELENIUM_URL% test"
     }
   }
 }
@@ -115,25 +115,19 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        sh "docker compose -f ${env.COMPOSE_FILE} down -v --remove-orphans || true"
-                        sh "docker compose -f ${env.COMPOSE_FILE} up -d --build"
-                        sh "docker compose -f ${env.COMPOSE_FILE} ps"
-
-                        sh "docker compose -f ${env.COMPOSE_FILE} up -d --build"
-                        sh "docker compose -f ${env.COMPOSE_FILE} ps"
+                        sh "docker compose -p ${env.COMPOSE_PROJECT_NAME} -f ${env.COMPOSE_FILE} down -v --remove-orphans || true"
+                        sh "docker compose -p ${env.COMPOSE_PROJECT_NAME} -f ${env.COMPOSE_FILE} up -d --build"
+                        sh "docker compose -p ${env.COMPOSE_PROJECT_NAME} -f ${env.COMPOSE_FILE} ps"
                     } else {
-                        bat 'docker compose -f %COMPOSE_FILE% down -v --remove-orphans || ver>nul'
-                        bat 'docker compose -f %COMPOSE_FILE% up -d --build'
-                        bat 'docker compose -f %COMPOSE_FILE% ps'
-
-
-                        bat 'docker compose -f %COMPOSE_FILE% up -d --build'
-                        bat 'docker compose -f %COMPOSE_FILE% ps'
+                        bat 'docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% down -v --remove-orphans || ver>nul'
+                        bat 'docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% up -d --build'
+                        bat 'docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% ps'
 
         // ✅ CMD quoting çilesi yok: PowerShell'i dosyadan çalıştır
         writeFile file: 'wait-ci.ps1', encoding: 'UTF-8', text: '''
 $ErrorActionPreference = "SilentlyContinue"
 $compose = $env:COMPOSE_FILE
+$project = $env:COMPOSE_PROJECT_NAME
 
 function Wait-Url([string]$url, [int]$tries, [int]$sleepSec) {
   for($i=0; $i -lt $tries; $i++){
@@ -152,7 +146,7 @@ function Wait-Url([string]$url, [int]$tries, [int]$sleepSec) {
 # 1) Selenium Grid ready (host -> 14444)
 if(-not (Wait-Url "http://localhost:14444/status" 60 2)){
   Write-Host "FAIL: Grid not ready"
-  & docker compose -f $compose logs --no-color selenium | Out-Host
+  & docker compose -p $project -f $compose logs --no-color selenium | Out-Host
   exit 1
 }
 
@@ -167,8 +161,8 @@ if(-not $ok){
 
 if(-not $ok){
   Write-Host "FAIL: App not ready on host"
-  & docker compose -f $compose ps | Out-Host
-  & docker compose -f $compose logs --no-color app | Out-Host
+  & docker compose -p $project -f $compose ps | Out-Host
+  & docker compose -p $project -f $compose logs --no-color app | Out-Host
   exit 1
 }
 
@@ -187,28 +181,30 @@ exit 0
             steps {
                 script {
                     if (isUnix()) {
-                        sh "docker compose -f ${env.COMPOSE_FILE} ps"
+                        sh "docker compose -p ${env.COMPOSE_PROJECT_NAME} -f ${env.COMPOSE_FILE} ps"
             // Linux agent varsa burada da smoke eklenebilir, şimdilik dokunmuyorum.
           } else {
-                        bat "docker compose -f %COMPOSE_FILE% ps"
+                        bat "docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% ps"
 
             writeFile file: 'smoke.ps1', encoding: 'UTF-8', text: '''
 $ErrorActionPreference = "SilentlyContinue"
 $compose = $env:COMPOSE_FILE
+$project = $env:COMPOSE_PROJECT_NAME
 
 function ExecSelenium([string]$innerCmd) {
-  & docker compose -f $compose exec -T selenium sh -lc $innerCmd 2>&1
+  & docker compose -p $project -f $compose exec -T selenium sh -lc $innerCmd 2>&1
 }
 
 $ok = $false
+$ping = "http://app:8080/api/public/ping"
 
 for($i=0; $i -lt 90; $i++){
-  Write-Host ("[try " + $i + "] curl -k -i https://app_https:8443/api/public/ping")
-  $out = ExecSelenium "curl -k -sS -i https://app_https:8443/api/public/ping || true"
+  Write-Host ("[try " + $i + "] curl -i " + $ping)
+  $out = ExecSelenium "curl -sS -i $ping || true"
   if($out){ $out | ForEach-Object { Write-Host $_ } }
 
   if($out -match "HTTP/[^ ]+ 200"){
-    Write-Host "OK: Selenium can reach app_https:8443 (HTTPS)"
+    Write-Host "OK: Selenium can reach app:8080 (HTTP)"
     $ok = $true
     break
   }
@@ -217,18 +213,16 @@ for($i=0; $i -lt 90; $i++){
 }
 
 if(-not $ok){
-  Write-Host "FAIL: Selenium cannot reach https://app_https:8443"
-  Write-Host "---- app_https logs ----"
-  & docker compose -f $compose logs --no-color app_https | Out-Host
-  Write-Host "---- selenium logs ----"
-  & docker compose -f $compose logs --no-color selenium | Out-Host
+  Write-Host "FAIL: Selenium cannot reach $ping"
   Write-Host "---- app logs ----"
-  & docker compose -f $compose logs --no-color app | Out-Host
+  & docker compose -p $project -f $compose logs --no-color app | Out-Host
+  Write-Host "---- selenium logs ----"
+  & docker compose -p $project -f $compose logs --no-color selenium | Out-Host
   exit 1
 }
 
-Write-Host "[ui check] https://app_https:8443/ui/login.html?role=OWNER"
-ExecSelenium "curl -k -sS -I 'https://app_https:8443/ui/login.html?role=OWNER' || true" | ForEach-Object { Write-Host $_ }
+Write-Host "[ui check] http://app:8080/ui/login.html?role=OWNER"
+ExecSelenium "curl -sS -I 'http://app:8080/ui/login.html?role=OWNER' || true" | ForEach-Object { Write-Host $_ }
 
 exit 0
 '''
@@ -241,9 +235,9 @@ exit 0
                 always {
                     script {
                         if (!isUnix()) {
-                            bat 'docker compose -f %COMPOSE_FILE% logs --no-color app || ver>nul'
-              bat 'docker compose -f %COMPOSE_FILE% logs --no-color selenium || ver>nul'
-              bat 'docker compose -f %COMPOSE_FILE% ps'
+                            bat 'docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% logs --no-color app || ver>nul'
+              bat 'docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% logs --no-color selenium || ver>nul'
+              bat 'docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% ps'
             }
           }
         }
@@ -299,13 +293,13 @@ exit 0
     // Docker AYAKTA KALSIN diye sadece durum/log basıyoruz
     script {
                 if (isUnix()) {
-                    sh "docker compose -f ${env.COMPOSE_FILE} ps || true"
-        sh "docker compose -f ${env.COMPOSE_FILE} logs --no-color --tail=80 app || true"
-        sh "docker compose -f ${env.COMPOSE_FILE} logs --no-color --tail=80 selenium || true"
+                    sh "docker compose -p ${env.COMPOSE_PROJECT_NAME} -f ${env.COMPOSE_FILE} ps || true"
+        sh "docker compose -p ${env.COMPOSE_PROJECT_NAME} -f ${env.COMPOSE_FILE} logs --no-color --tail=80 app || true"
+        sh "docker compose -p ${env.COMPOSE_PROJECT_NAME} -f ${env.COMPOSE_FILE} logs --no-color --tail=80 selenium || true"
       } else {
-                    bat "docker compose -f %COMPOSE_FILE% ps"
-        bat "docker compose -f %COMPOSE_FILE% logs --no-color --tail=80 app || ver>nul"
-        bat "docker compose -f %COMPOSE_FILE% logs --no-color --tail=80 selenium || ver>nul"
+                    bat "docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% ps"
+        bat "docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% logs --no-color --tail=80 app || ver>nul"
+        bat "docker compose -p %COMPOSE_PROJECT_NAME% -f %COMPOSE_FILE% logs --no-color --tail=80 selenium || ver>nul"
       }
     }
   }

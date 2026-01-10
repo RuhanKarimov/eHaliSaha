@@ -28,26 +28,46 @@ public abstract class BaseE2ETestE2E {
 
     // ---------- env / urls ----------
 
-    protected String baseUrl() {
-        String env = System.getenv("BASE_URL");
-        if (env != null && !env.isBlank()) return env.trim();
-
-        // fallback: seleniumUrl localhost ise chrome container hosta gidiyor -> host.docker.internal
-        String sel = seleniumUrl();
-        if (sel.contains("localhost") || sel.contains("127.0.0.1")) {
-            return "http://host.docker.internal:8080";
+    protected String cfg(String... keys) {
+        for (String k : keys) {
+            if (k == null || k.isBlank()) continue;
+            String v = System.getProperty(k);
+            if (v != null && !v.isBlank()) return v.trim();
+            v = System.getenv(k);
+            if (v != null && !v.isBlank()) return v.trim();
         }
-        // compose içi tipik: selenium container -> app service
+        return null;
+    }
+
+    protected String baseUrl() {
+        String v = cfg(
+                "BASE_URL", "E2E_BASE_URL",
+                "e2e.baseUrl", "e2e.base_url"
+        );
+        if (v != null) return v;
+
+        // Varsayılan: docker network içinden app servisine git (en stabil yol)
+        String mode = cfg("E2E_MODE", "e2e.mode");
+        if (mode != null && mode.equalsIgnoreCase("host")) {
+            String hostPort = cfg("APP_HOST_PORT", "e2e.appHostPort");
+            if (hostPort == null) hostPort = "18080";
+            return "http://host.docker.internal:" + hostPort;
+        }
         return "http://app:8080";
     }
 
     protected String seleniumUrl() {
-        String env = System.getenv("SELENIUM_URL");
-        if (env != null && !env.isBlank()) return env.trim();
-        return "http://selenium:4444/wd/hub";
+        String v = cfg(
+                "SELENIUM_URL", "E2E_SELENIUM_URL",
+                "e2e.seleniumUrl", "e2e.selenium_url"
+        );
+        if (v != null) return v;
+
+        // Varsayılan: Jenkins/host tarafı (compose'da 14444:4444)
+        return "http://localhost:14444/wd/hub";
     }
 
-    // ---------- setup / teardown ----------
+// ---------- setup / teardown ----------
 
     @BeforeEach
     void setUp() throws Exception {
@@ -77,7 +97,7 @@ public abstract class BaseE2ETestE2E {
                 "AutomaticHttpsUpgrades");
 
         // apply CHROME_ARGS from Jenkins (split by ;)
-        String raw = System.getenv("CHROME_ARGS");
+        String raw = cfg("CHROME_ARGS", "e2e.chromeArgs");
         System.out.println("CHROME_ARGS=" + raw);
         System.out.println("BASE_URL=" + baseUrl());
         System.out.println("SELENIUM_URL=" + seleniumUrl());
@@ -165,17 +185,30 @@ public abstract class BaseE2ETestE2E {
     }
 
     protected void clickSmart(By locator) {
-        WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
-        try {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", el);
-        } catch (Exception ignored) {}
+        RuntimeException last = null;
+        for (int i = 0; i < 3; i++) {
+            try {
+                WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+                try {
+                    ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", el);
+                } catch (Exception ignored) {}
 
-        try {
-            wait.until(ExpectedConditions.elementToBeClickable(el)).click();
-        } catch (Exception e) {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+                try {
+                    wait.until(ExpectedConditions.elementToBeClickable(el)).click();
+                } catch (Exception e) {
+                    // stale / intercepted / not clickable -> retry once
+                    ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+                }
+                return;
+            } catch (RuntimeException ex) {
+                last = ex;
+                // küçük backoff
+                try { Thread.sleep(150); } catch (InterruptedException ignored) {}
+            }
         }
+        if (last != null) throw last;
     }
+
 
     // --------- click helpers (geri eklendi) ---------
 
@@ -319,7 +352,7 @@ public abstract class BaseE2ETestE2E {
 
 
                 // contains yerine startsWith daha mantıklı (option genelde "Name + ayırıcı + Address")
-                if (fold(t).startsWith(want)) return true;
+                if (fold(t).contains(want)) return true;
             }
             return false;
         } catch (Exception e) {
@@ -406,13 +439,13 @@ public abstract class BaseE2ETestE2E {
         By selLoc = By.id("ownerFacilitySel");
         By outLoc = By.id("ownerOut");
 
-        // owner panel DOM
+        // owner panel DOM hazır mı?
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facName")));
         wait.until(ExpectedConditions.presenceOfElementLocated(By.id("facAddr")));
         wait.until(ExpectedConditions.presenceOfElementLocated(selLoc));
         wait.until(ExpectedConditions.presenceOfElementLocated(outLoc));
 
-        // bazen sayfa açılır açılmaz listeler geç geliyor -> 1 kez refreshAll
+        // sayfa ilk açılışında listeler geç gelebiliyor
         tryRefreshAll();
 
         // 1) zaten var mı?
@@ -425,69 +458,51 @@ public abstract class BaseE2ETestE2E {
         type(By.id("facName"), name);
         type(By.id("facAddr"), addr);
 
-        // tercih: id varsa onu kullan
+        // out'u CLICK'ten önce temizle (race olmasın)
+        String outBefore = safeText(outLoc);
+        try {
+            WebElement outEl = driver.findElement(outLoc);
+            ((JavascriptExecutor) driver).executeScript("arguments[0].innerText='';", outEl);
+            outBefore = "";
+        } catch (Exception ignored) {}
+
         By btnCreate = By.id("btnCreateFacility");
         if (driver.findElements(btnCreate).isEmpty()) {
-            // fallback: onclick
             btnCreate = By.cssSelector("button[onclick*='UI.createFacility']");
         }
         clickSmart(btnCreate);
 
-        // 0) out önceki metni al (hatta temizle ki değişimi net görelim)
-        String outBeforeTmp = safeText(outLoc);
-        boolean cleared = false;
-        try {
-            WebElement outEl = driver.findElement(outLoc);
-            ((JavascriptExecutor) driver).executeScript("arguments[0].innerText='';", outEl);
-            cleared = true;
-        } catch (Exception ignored) {}
-
-        final String outBefore = cleared ? "" : outBeforeTmp;
-
-        // create click zaten yukarıda
-        // clickSmart(btnCreate);
-
-        // 1) “API döndü” sinyali: dropdown’a option düştü VEYA ownerOut değişti/doldu
+        // 3) API sinyali: option geldi VEYA ownerOut doldu (ok/err)
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
         apiWait.pollingEvery(Duration.ofMillis(250));
-
-        System.out.println("(ensureFacilityExists)Facility Name: " + byId("ownerFacilitySel").getText());
         apiWait.until(d -> {
-            // en güçlü sinyal: option geldi
             if (hasOptionContaining(d, selLoc, name)) return true;
-
-            // ikinci sinyal: out doldu veya değişti (OK/Hata kelimesine bağlama)
             String out = safeText(d, outLoc);
-            out = out == null ? "" : out.trim();
-            return out.isBlank() && !out.equals(outBefore);
+            out = (out == null) ? "" : out.trim();
+            return !out.isBlank() && !out.equals(outBefore);
         });
-
 
         String outNow = safeText(outLoc);
 
-        // Hata geldiyse: bazen create OK olur ama loadFacilities patlar -> refreshAll ile toparlanabilir
-        if (isErrorLike(outNow)) {
-            tryRefreshAll();
-        }
+        // 4) list her zaman anında güncellenmeyebiliyor -> 1 kez refreshAll
+        tryRefreshAll();
 
-        // 4) asıl başarı sinyali: dropdown option gelmesi
+        // 5) asıl başarı: dropdown option
         WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(60));
         longWait.pollingEvery(Duration.ofMillis(300));
-
-        try {
-            longWait.until(d -> hasOptionContaining(d, selLoc, name));
-        } catch (TimeoutException te) {
-            // son çare: 1 kez daha refreshAll
-            tryRefreshAll();
-            longWait.until(d -> hasOptionContaining(d, selLoc, name));
-        }
+        longWait.until(d -> hasOptionContaining(d, selLoc, name) || isErrorLike(safeText(d, outLoc)));
 
         if (!hasOptionContaining(selLoc, name)) {
             fail("Facility dropdown'a düşmedi. ownerOut=" + safeText(outLoc) + " options=" + dumpOptions(selLoc));
         }
 
-        // 5) select
+        // 6) select
         selectByContainsText(selLoc, name);
+
+        // 7) Eğer UI hata gösteriyorsa, net patlatalım
+        if (isErrorLike(outNow)) {
+            fail("Facility oluşturma hata verdi. ownerOut=" + outNow);
+        }
     }
 
     protected void setSlotsDayAndSave() {

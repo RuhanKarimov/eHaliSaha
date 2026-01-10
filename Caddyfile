@@ -1,4 +1,8 @@
-:8443 {
-  reverse_proxy app:8080
+{
+  auto_https off
+}
+
+apphttps:8443 {
   tls internal
+  reverse_proxy app:8080
 }

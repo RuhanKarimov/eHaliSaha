@@ -28,25 +28,32 @@ services:
     ports:
       - "18080:8080"
 
-  # ✅ NEW: HTTPS reverse proxy (container içi HTTPS sağlar)
   app_https:
     image: caddy:2-alpine
     depends_on:
       - app
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-    # hosttan debug istersen aç; istemezsen bu ports bloğunu silebilirsin
     ports:
       - "18443:8443"
+    networks:
+      default:
+        aliases:
+          - apphttps   # ✅ TLS için underscore'suz alias
 
   selenium:
     image: selenium/standalone-chrome:latest
-    shm_size: 2gb
+    shm_size: 2g
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "14444:4444"
     environment:
-      - SE_NODE_SESSION_TIMEOUT=300
-      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_SESSION_TIMEOUT=120
+      - SE_NODE_MAX_SESSIONS=2
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      - SE_SESSION_REQUEST_TIMEOUT=60
+      - SE_SESSION_RETRY_INTERVAL=1
 
 volumes:
   dbdata_ci:
