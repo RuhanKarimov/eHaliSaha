@@ -1,0 +1,4 @@
+:8443 {
+  reverse_proxy app:8080
+  tls internal
+}

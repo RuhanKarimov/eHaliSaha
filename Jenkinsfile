@@ -9,7 +9,7 @@ def chromeArgsCommon() {
 def e2eEnv(String chromeArgs) {
     // ✅ Browser container’da -> app servisine docker network’ten eriş
   return [
-    "BASE_URL=http://app:8080",
+    "BASE_URL=https://app_https:8443",
     // ✅ Maven host’ta koşuyor -> selenium host portundan eriş
     "SELENIUM_URL=http://localhost:14444/wd/hub",
     "CHROME_ARGS=${chromeArgs}"
@@ -203,12 +203,12 @@ function ExecSelenium([string]$innerCmd) {
 $ok = $false
 
 for($i=0; $i -lt 90; $i++){
-  Write-Host ("[try " + $i + "] curl -i http://app:8080/api/public/ping")
-  $out = ExecSelenium "curl -sS -i http://app:8080/api/public/ping || true"
+  Write-Host ("[try " + $i + "] curl -k -i https://app_https:8443/api/public/ping")
+  $out = ExecSelenium "curl -k -sS -i https://app_https:8443/api/public/ping || true"
   if($out){ $out | ForEach-Object { Write-Host $_ } }
 
   if($out -match "HTTP/[^ ]+ 200"){
-    Write-Host "OK: Selenium can reach app:8080"
+    Write-Host "OK: Selenium can reach app_https:8443 (HTTPS)"
     $ok = $true
     break
   }
@@ -217,7 +217,9 @@ for($i=0; $i -lt 90; $i++){
 }
 
 if(-not $ok){
-  Write-Host "FAIL: Selenium cannot reach app:8080"
+  Write-Host "FAIL: Selenium cannot reach https://app_https:8443"
+  Write-Host "---- app_https logs ----"
+  & docker compose -f $compose logs --no-color app_https | Out-Host
   Write-Host "---- selenium logs ----"
   & docker compose -f $compose logs --no-color selenium | Out-Host
   Write-Host "---- app logs ----"
@@ -225,11 +227,12 @@ if(-not $ok){
   exit 1
 }
 
-Write-Host "[ui check] http://app:8080/ui/login.html?role=OWNER"
-ExecSelenium "curl -sS -I 'http://app:8080/ui/login.html?role=OWNER' || true" | ForEach-Object { Write-Host $_ }
+Write-Host "[ui check] https://app_https:8443/ui/login.html?role=OWNER"
+ExecSelenium "curl -k -sS -I 'https://app_https:8443/ui/login.html?role=OWNER' || true" | ForEach-Object { Write-Host $_ }
 
 exit 0
 '''
+
             bat 'powershell -NoProfile -ExecutionPolicy Bypass -File smoke.ps1'
           }
         }
