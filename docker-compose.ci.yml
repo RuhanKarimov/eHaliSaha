@@ -16,7 +16,6 @@ services:
   app:
     build: .
     environment:
-      # Spring Boot datasource (adjust if your app uses different keys)
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/ehalisaha
       SPRING_DATASOURCE_USERNAME: ehalisaha
       SPRING_DATASOURCE_PASSWORD: ehalisaha
@@ -28,6 +27,17 @@ services:
         condition: service_healthy
     ports:
       - "18080:8080"
+
+  # ✅ NEW: HTTPS reverse proxy (container içi HTTPS sağlar)
+  app_https:
+    image: caddy:2-alpine
+    depends_on:
+      - app
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    # hosttan debug istersen aç; istemezsen bu ports bloğunu silebilirsin
+    ports:
+      - "18443:8443"
 
   selenium:
     image: selenium/standalone-chrome:latest
