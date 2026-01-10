@@ -1,8 +1,10 @@
 // ---------------- helpers (pipeline dışı) ----------------
 
 def chromeArgsCommon() {
-    return "--disable-features=HttpsOnlyMode,UpgradeInsecureRequests,HttpsFirstMode,HttpsFirstModeV2,HttpsUpgrades,AutomaticHttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost"
+    // Sadece Chromium’da gerçekten var olan ana feature’lar:
+  return "--disable-features=HttpsOnlyMode,HttpsFirstModeV2,HttpsUpgrades;--ignore-certificate-errors;--allow-insecure-localhost;--no-first-run;--no-default-browser-check"
 }
+
 
 def e2eEnv(String chromeArgs) {
     // ✅ Browser container’da -> app servisine docker network’ten eriş
