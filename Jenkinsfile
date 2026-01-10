@@ -9,7 +9,7 @@ def chromeArgsCommon() {
 def e2eEnv(String chromeArgs) {
     // ✅ Browser container’da -> app servisine docker network’ten eriş
   return [
-    "BASE_URL=http://app:8080",  // bazı Windows Docker kurulumlarında 18080 mapping var
+    "BASE_URL=host.docker.internal:18080",  // bazı Windows Docker kurulumlarında 18080 mapping var
     // ✅ Maven host’ta koşuyor -> selenium host portundan eriş
     "SELENIUM_URL=http://localhost:14444/wd/hub",
     "CHROME_ARGS=${chromeArgs}"
@@ -196,7 +196,7 @@ function ExecSelenium([string]$innerCmd) {
 }
 
 $ok = $false
-$ping = "host.docker.internal:8080/api/public/ping"
+$ping = "host.docker.internal:18080/api/public/ping"
 
 for($i=0; $i -lt 90; $i++){
   Write-Host ("[try " + $i + "] curl -i " + $ping)
@@ -221,8 +221,8 @@ if(-not $ok){
   exit 1
 }
 
-Write-Host "[ui check] host.docker.internal:8080/ui/login.html?role=OWNER"
-ExecSelenium "curl -sS -I 'host.docker.internal:8080/ui/login.html?role=OWNER' || true" | ForEach-Object { Write-Host $_ }
+Write-Host "[ui check] host.docker.internal:18080/ui/login.html?role=OWNER"
+ExecSelenium "curl -sS -I 'host.docker.internal:18080/ui/login.html?role=OWNER' || true" | ForEach-Object { Write-Host $_ }
 
 exit 0
 '''
