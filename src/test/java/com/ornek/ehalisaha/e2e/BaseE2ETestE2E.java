@@ -459,13 +459,14 @@ public abstract class BaseE2ETestE2E {
         type(By.id("facAddr"), addr);
 
         // out'u CLICK'ten önce temizle (race olmasın)
-        String outBefore = safeText(outLoc);
+        String outBeforeTMP = safeText(outLoc);
+        boolean clear = false;
         try {
             WebElement outEl = driver.findElement(outLoc);
             ((JavascriptExecutor) driver).executeScript("arguments[0].innerText='';", outEl);
-            outBefore = "";
+            clear = true;
         } catch (Exception ignored) {}
-
+        final String outBefore = clear? "" : outBeforeTMP;
         By btnCreate = By.id("btnCreateFacility");
         if (driver.findElements(btnCreate).isEmpty()) {
             btnCreate = By.cssSelector("button[onclick*='UI.createFacility']");
