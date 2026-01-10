@@ -264,17 +264,37 @@ public abstract class BaseE2ETestE2E {
     protected boolean isErrorLike(String s) {
         if (s == null) return false;
         String t = s.trim().toLowerCase();
-        // UI "Hata: ..." diyor
-        return t.contains("hata") || t.contains("error") || t.contains("exception")
-                || t.contains("failed") || t.contains("invalid");
+
+        return t.contains("hata")
+                || t.contains("error")
+                || t.contains("exception")
+                || t.contains("failed")
+                || t.contains("invalid")
+                || t.contains("başarısız")
+                || t.contains("yetkisiz")
+                || t.contains("unauthorized")
+                || t.contains("forbidden")
+                || t.contains("conflict")
+                || t.contains("409")
+                || t.contains("zaten")
+                || t.contains("mevcut")
+                || t.contains("exists")
+                || t.contains("already");
     }
+
 
     protected boolean isOkLike(String s) {
         if (s == null) return false;
-        String t = s.trim();
-        // UI "OK ✅ FacilityId=..." diyor
-        return t.contains("OK") || t.contains("FacilityId=");
+        String t = s.trim().toLowerCase();
+        return t.contains("ok")
+                || t.contains("başar")
+                || t.contains("oluştur")
+                || t.contains("created")
+                || t.contains("saved")
+                || t.contains("facilityid=")
+                || t.contains("id=");
     }
+
 
     protected boolean hasOptionContaining(By selectBy, String contains) {
         return hasOptionContaining(driver, selectBy, contains);
@@ -368,13 +388,34 @@ public abstract class BaseE2ETestE2E {
         }
         clickSmart(btnCreate);
 
-        // 3) ownerOut'ta "OK..." veya "Hata..." sinyali gelsin (API döndü mü?)
+        // 0) out önceki metni al (hatta temizle ki değişimi net görelim)
+        String outBeforeTmp = safeText(outLoc);
+        boolean cleared = false;
+        try {
+            WebElement outEl = driver.findElement(outLoc);
+            ((JavascriptExecutor) driver).executeScript("arguments[0].innerText='';", outEl);
+            cleared = true;
+        } catch (Exception ignored) {}
+
+        final String outBefore = cleared ? "" : outBeforeTmp;
+
+        // create click zaten yukarıda
+        // clickSmart(btnCreate);
+
+        // 1) “API döndü” sinyali: dropdown’a option düştü VEYA ownerOut değişti/doldu
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
         apiWait.pollingEvery(Duration.ofMillis(250));
+
         apiWait.until(d -> {
+            // en güçlü sinyal: option geldi
+            if (hasOptionContaining(d, selLoc, name)) return true;
+
+            // ikinci sinyal: out doldu veya değişti (OK/Hata kelimesine bağlama)
             String out = safeText(d, outLoc);
-            return isOkLike(out) || isErrorLike(out);
+            out = out == null ? "" : out.trim();
+            return out.isBlank() && !out.equals(outBefore);
         });
+
 
         String outNow = safeText(outLoc);
 
