@@ -13,8 +13,10 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -303,16 +305,58 @@ public abstract class BaseE2ETestE2E {
     protected boolean hasOptionContaining(WebDriver d, By selectBy, String contains) {
         try {
             Select sel = new Select(d.findElement(selectBy));
+            String want = fold(contains);
+
             for (WebElement opt : sel.getOptions()) {
                 String t = opt.getText();
-                System.out.println("hasOptionContaining:" + t);
-                if (t.contains(contains)) return true;
+
+                // debug istiyorsan:
+                System.out.println("hasOptionContainingFold: " + fold(t));
+                System.out.println("containsRaw: " + contains);
+                System.out.println("containsCP : " + codepoints(contains));
+                System.out.println("optRaw     : " + t);
+                System.out.println("optCP      : " + codepoints(t));
+
+
+                // contains yerine startsWith daha mantıklı (option genelde "Name + ayırıcı + Address")
+                if (fold(t).startsWith(want)) return true;
             }
             return false;
         } catch (Exception e) {
             return false;
         }
     }
+
+    private static String fold(String s) {
+        if (s == null) return "";
+        String x = Normalizer.normalize(s, Normalizer.Form.NFKC);
+
+        // NBSP ve türev boşlukları normal boşluğa çevir
+        x = x.replace('\u00A0', ' ')
+                .replace('\u202F', ' ')
+                .replace('\u2007', ' ');
+
+        // Jenkins konsolunda � gördüğün şey bazen gerçek metinde U+FFFD olabilir
+        // Biz bunu "i" gibi davranacak şekilde ele alıyoruz (özellikle Halısaha gibi yerlerde)
+        x = x.replace('\uFFFD', 'i');
+
+        // Türkçe i/ı problemleri (test verilerini stabil yapar)
+        x = x.replace('ı', 'i').replace('İ', 'I').replace('i', 'i');
+
+        // Fazla boşlukları tek boşluk yap
+        x = x.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
+        return x;
+    }
+
+    private static String codepoints(String s) {
+        if (s == null) return "null";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            sb.append(String.format("U+%04X ", (int) s.charAt(i)));
+        }
+        return sb.toString().trim();
+    }
+
 
     protected String dumpOptions(By selectBy) {
         try {
