@@ -9,7 +9,7 @@ def chromeArgsCommon() {
 def e2eEnv(String chromeArgs) {
     // ✅ Browser container’da -> app servisine docker network’ten eriş
   return [
-    "BASE_URL=host.docker.internal:8080",
+    "BASE_URL=host.docker.internal:18080",  // bazı Windows Docker kurulumlarında 18080 mapping var
     // ✅ Maven host’ta koşuyor -> selenium host portundan eriş
     "SELENIUM_URL=http://localhost:14444/wd/hub",
     "CHROME_ARGS=${chromeArgs}"
