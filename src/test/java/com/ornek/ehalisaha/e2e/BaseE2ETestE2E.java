@@ -500,10 +500,35 @@ public abstract class BaseE2ETestE2E {
         // 6) select
         selectByContainsText(selLoc, name);
 
+        // Bazı UI'larda select ile seçim change event’i bazen tetiklenmeyebiliyor.
+        // Garantileyelim:
+        try {
+            WebElement selEl = driver.findElement(selLoc);
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));", selEl
+            );
+        } catch (Exception ignored) {}
+
+        tryRefreshAll(); // UI.refreshAll varsa iyi
+
+        // Pitch dropdown "yüklendi mi?" diye bekle (pitch var mı diye değil!)
+        By pitchSel = By.id("ownerPitchSel");
+        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(30));
+        w.until(d -> {
+            try {
+                Select ps = new Select(d.findElement(pitchSel));
+                return ps.getOptions().size() >= 1; // placeholder bile olsa "loaded"
+            } catch (Exception e) {
+                return false;
+            }
+        });
+
         // 7) Eğer UI hata gösteriyorsa, net patlatalım
-        if (isErrorLike(outNow)) {
-            fail("Facility oluşturma hata verdi. ownerOut=" + outNow);
+        String outAfter = safeText(outLoc);
+        if (isErrorLike(outAfter)) {
+            fail("Facility akışı hata verdi. ownerOut=" + outAfter);
         }
+
     }
 
     protected void setSlotsDayAndSave() {
@@ -523,6 +548,9 @@ public abstract class BaseE2ETestE2E {
 
         String out = safeText(outLoc);
         if (isErrorLike(out)) fail("Slot kaydetme hata verdi. ownerOut=" + out);
+
+        tryRefreshAll();
+
     }
 
     protected void ensurePitchExists(String pitchName) {
@@ -541,6 +569,7 @@ public abstract class BaseE2ETestE2E {
             btn = By.xpath("//button[normalize-space(.)='Ekle']");
         }
         clickSmart(btn);
+        tryRefreshAll();
 
         WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
         w.pollingEvery(Duration.ofMillis(300));
