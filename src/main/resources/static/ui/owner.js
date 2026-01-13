@@ -19,7 +19,7 @@
             return h;
         },
         async get(url) {
-            const r = await fetch(url, { headers: this._hdr() });
+            const r = await fetch(url, { headers: this._hdr(), cache:"no-store" });
             if (!r.ok) throw await safeErr(r);
             return r.json();
         },
@@ -436,6 +436,9 @@ window.UI = (function () {
         try {
             const created = await EH.API.post("/api/owner/facilities", { name, address });
             notice("Facility oluşturuldu ✅", "ok", created);
+            state.facilities.push(created);
+            renderFacilities();
+            if(created?.id) el("ownerFacilitySel").value = String(created.id);
 
             await loadFacilities();
             if (created?.id) el("ownerFacilitySel").value = String(created.id);
