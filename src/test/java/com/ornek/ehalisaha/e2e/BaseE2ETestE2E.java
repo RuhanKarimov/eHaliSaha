@@ -48,7 +48,12 @@ public abstract class BaseE2ETestE2E {
 
         // Varsayılan: docker network içinden app servisine git (en stabil yol)
         String mode = cfg("E2E_MODE", "e2e.mode");
-        return "http://app:8080";
+        if (mode != null && mode.equalsIgnoreCase("host")) {
+            String hostPort = cfg("APP_HOST_PORT", "e2e.appHostPort");
+            if (hostPort == null) hostPort = "18080";
+            return "http://host.docker.internal:" + hostPort;
+        }
+        return "http://host.docker.internal:18080";
     }
 
     protected String seleniumUrl() {
@@ -426,17 +431,7 @@ public abstract class BaseE2ETestE2E {
 
         wait.until(d -> d.getCurrentUrl().contains(expectedPath));
         waitForDocumentReady();
-
-        // 🔥 KRİTİK: UI için Basic Auth set et
-        ((JavascriptExecutor) driver).executeScript("""
-        if (window.EH && EH.API && EH.API.setBasicAuth) {
-            EH.API.setBasicAuth(arguments[0], arguments[1]);
-        } else {
-            localStorage.setItem("eh_basic", btoa(arguments[0] + ":" + arguments[1]));
-        }
-    """, username, password);
     }
-
 
     // ---------- Owner flows ----------
 
