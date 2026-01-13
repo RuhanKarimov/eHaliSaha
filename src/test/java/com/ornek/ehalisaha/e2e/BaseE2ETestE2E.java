@@ -53,7 +53,7 @@ public abstract class BaseE2ETestE2E {
             if (hostPort == null) hostPort = "18080";
             return "http://host.docker.internal:" + hostPort;
         }
-        return "http://app:8080";
+        return "http://host.docker.internal:18080";
     }
 
     protected String seleniumUrl() {
