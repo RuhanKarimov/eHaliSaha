@@ -471,7 +471,7 @@ public abstract class BaseE2ETestE2E {
         if (driver.findElements(btnCreate).isEmpty()) {
             btnCreate = By.cssSelector("button[onclick*='UI.createFacility']");
         }
-        clickSmart(btnCreate);
+        click(btnCreate);
 
         // 3) API sinyali: option geldi VEYA ownerOut doldu (ok/err)
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
