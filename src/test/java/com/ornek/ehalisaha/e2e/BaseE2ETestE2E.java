@@ -185,7 +185,7 @@ public abstract class BaseE2ETestE2E {
     }
 
     protected void click(By locator) {
-        WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        WebElement el = driver.findElement(locator);
         try {
             System.out.println("--------------------------------------------------Clicking element------------------------: " + locator + " ---------------Text: " + el);
             el.click();
