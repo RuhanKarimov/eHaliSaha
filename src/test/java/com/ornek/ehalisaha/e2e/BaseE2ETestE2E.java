@@ -187,8 +187,8 @@ public abstract class BaseE2ETestE2E {
     protected void click(By locator) {
         WebElement el = driver.findElement(locator);
         try {
-            System.out.println("--------------------------------------------------Clicking element------------------------: " + locator + " ---------------Text: " + el);
             el.click();
+            System.out.println("--------------------------------------------------Clicking element------------------------: " + locator + " ---------------Text: " + el);
         } catch (ElementClickInterceptedException e) {
             ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
         }
@@ -451,7 +451,8 @@ public abstract class BaseE2ETestE2E {
         if (driver.findElements(btnCreate).isEmpty()) {
             System.out.println("onrevrıonwoırbtnpıwrtbnwıprubnwrıoptubnwtrıbunrtgbıujpnfbkşrıotbnwroıtbnwtrğbnwtrbo0ınwb0trw0wr9btnwr0t9bnwrğtıobwrtobışwrtbnk");
         }
-        click(btnCreate);
+        WebElement el = driver.findElement(btnCreate);
+        el.click();
 
         // 3) API sinyali: option geldi VEYA ownerOut doldu (ok/err)
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
