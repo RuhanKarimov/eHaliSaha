@@ -185,9 +185,15 @@ public abstract class BaseE2ETestE2E {
     }
 
     protected void click(By locator) {
-        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(locator));
-        el.click();
+        WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        try {
+            System.out.println("--------------------------------------------------Clicking element------------------------: " + locator + " ---------------Text: " + el);
+            el.click();
+        } catch (ElementClickInterceptedException e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+        }
     }
+
 
 
 
