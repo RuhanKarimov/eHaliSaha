@@ -184,38 +184,12 @@ public abstract class BaseE2ETestE2E {
         el.sendKeys(text);
     }
 
-    protected void clickSmart(By locator) {
-        RuntimeException last = null;
-        for (int i = 0; i < 3; i++) {
-            try {
-                WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
-                try {
-                    ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", el);
-                } catch (Exception ignored) {}
-
-                try {
-                    wait.until(ExpectedConditions.elementToBeClickable(el)).click();
-                } catch (Exception e) {
-                    // stale / intercepted / not clickable -> retry once
-                    ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
-                }
-                return;
-            } catch (RuntimeException ex) {
-                last = ex;
-                // küçük backoff
-                try { Thread.sleep(150); } catch (InterruptedException ignored) {}
-            }
-        }
-        if (last != null) throw last;
-    }
-
-
-    // --------- click helpers (geri eklendi) ---------
-
     protected void click(By locator) {
-        // testlerde click(By...) kullanıyorsun -> clickSmart ile aynı güvenlikte çalışsın
-        clickSmart(locator);
+        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(locator));
+        el.click();
     }
+
+
 
 // --------- out assertions (geri eklendi) ---------
 
@@ -406,7 +380,7 @@ public abstract class BaseE2ETestE2E {
         // owner.html: onclick="UI.refreshAll()"
         By btnRefresh = By.cssSelector("button[onclick*='UI.refreshAll']");
         if (!driver.findElements(btnRefresh).isEmpty()) {
-            try { clickSmart(btnRefresh); } catch (Exception ignored) {}
+            try { click(btnRefresh); } catch (Exception ignored) {}
         }
     }
 
@@ -427,7 +401,7 @@ public abstract class BaseE2ETestE2E {
 
         type(By.id("u"), username);
         type(By.id("p"), password);
-        clickSmart(By.id("btn"));
+        click(By.id("btn"));
 
         wait.until(d -> d.getCurrentUrl().contains(expectedPath));
         waitForDocumentReady();
@@ -511,8 +485,8 @@ public abstract class BaseE2ETestE2E {
         By saveBtn = By.xpath("//button[contains(normalize-space(.), 'Slotları Kaydet')]");
         By outLoc = By.id("ownerOut");
 
-        clickSmart(dayBtn);
-        clickSmart(saveBtn);
+        click(dayBtn);
+        click(saveBtn);
 
         WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
         w.pollingEvery(Duration.ofMillis(300));
@@ -540,7 +514,7 @@ public abstract class BaseE2ETestE2E {
         if (driver.findElements(btn).isEmpty()) {
             btn = By.xpath("//button[normalize-space(.)='Ekle']");
         }
-        clickSmart(btn);
+        click(btn);
 
         WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
         w.pollingEvery(Duration.ofMillis(300));
@@ -580,7 +554,7 @@ public abstract class BaseE2ETestE2E {
         if (driver.findElements(saveBtn).isEmpty()) {
             saveBtn = By.xpath("//button[contains(normalize-space(.), 'Kaydet')]");
         }
-        clickSmart(saveBtn);
+        click(saveBtn);
 
         WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
         w.pollingEvery(Duration.ofMillis(300));
