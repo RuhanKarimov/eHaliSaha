@@ -449,7 +449,7 @@ public abstract class BaseE2ETestE2E {
         final String outBefore = clear? "" : outBeforeTMP;
         By btnCreate = By.id("btnCreateFacility");
         if (driver.findElements(btnCreate).isEmpty()) {
-            btnCreate = By.cssSelector("button[onclick*='UI.createFacility']");
+            System.out.println("onrevrıonwoırbtnpıwrtbnwıprubnwrıoptubnwtrıbunrtgbıujpnfbkşrıotbnwroıtbnwtrğbnwtrbo0ınwb0trw0wr9btnwr0t9bnwrğtıobwrtobışwrtbnk");
         }
         click(btnCreate);
 
