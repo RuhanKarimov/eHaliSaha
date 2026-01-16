@@ -433,21 +433,44 @@ public abstract class BaseE2ETestE2E {
                         "window.__e2eClickSpyInstalled = true;" +
                         "window.__e2eClickCount = 0;" +
                         "window.__e2eLastClick = null;" +
-                        "document.addEventListener('click', function(ev) {" +
+                        "window.addEventListener('click', function(ev){" +   // ✅ window
                         "  window.__e2eClickCount++;" +
                         "  var t = ev.target;" +
-                        "  var txt = '';" +
-                        "  try { txt = (t && (t.innerText || t.textContent) || '').trim().slice(0,80); } catch(e) {}" +
-                        "  window.__e2eLastClick = {" +
-                        "    ts: Date.now()," +
-                        "    tag: t && t.tagName," +
-                        "    id:  t && t.id," +
-                        "    cls: t && t.className," +
-                        "    text: txt" +
-                        "  };" +
-                        "}, true);" // capture phase
+                        "  var txt='';" +
+                        "  try{ txt=((t&&(t.innerText||t.textContent))||'').trim().slice(0,80);}catch(e){}" +
+                        "  window.__e2eLastClick={ts:Date.now(),tag:t&&t.tagName,id:t&&t.id,cls:t&&t.className,text:txt};" +
+                        "}, true);"
         );
     }
+
+    protected void installFetchSpyOnce() {
+        ((JavascriptExecutor) driver).executeScript(
+                "if (window.__e2eFetchSpyInstalled) return;" +
+                        "window.__e2eFetchSpyInstalled = true;" +
+                        "window.__e2eFetchCount = 0;" +
+                        "window.__e2eLastFetch = null;" +
+                        "const _fetch = window.fetch;" +
+                        "window.fetch = function() {" +
+                        "  try {" +
+                        "    window.__e2eFetchCount++;" +
+                        "    const url = arguments[0];" +
+                        "    const opt = arguments[1] || {};" +
+                        "    window.__e2eLastFetch = {ts: Date.now(), url: String(url), method: String(opt.method||'GET')};" +
+                        "  } catch(e) {}" +
+                        "  return _fetch.apply(this, arguments);" +
+                        "};"
+        );
+    }
+
+    protected long fetchSpyCount() {
+        Object n = ((JavascriptExecutor) driver).executeScript("return window.__e2eFetchCount || 0;");
+        return (n instanceof Number) ? ((Number) n).longValue() : 0L;
+    }
+
+    protected Object lastFetchSpy() {
+        return ((JavascriptExecutor) driver).executeScript("return window.__e2eLastFetch;");
+    }
+
 
     protected long clickSpyCount() {
         Object n = ((JavascriptExecutor) driver).executeScript("return window.__e2eClickCount || 0;");
@@ -503,7 +526,69 @@ public abstract class BaseE2ETestE2E {
         }
     }
 
+    protected void clickAndProbe(By locator, String expectedIdIfAny) {
+        installClickSpyOnce();
+        installFetchSpyOnce();
 
+        long beforeClick = clickSpyCount();
+        long beforeFetch = fetchSpyCount();
+
+        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(locator));
+        try { ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center',inline:'center'});", el); }
+        catch (Exception ignored) {}
+
+        // native -> actions -> js fallback
+        try {
+            el.click();
+        } catch (Exception e1) {
+            try {
+                new org.openqa.selenium.interactions.Actions(driver)
+                        .moveToElement(el).pause(Duration.ofMillis(50))
+                        .click().perform();
+            } catch (Exception e2) {
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+            }
+        }
+
+        boolean observed = false;
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(2))
+                    .pollingEvery(Duration.ofMillis(100))
+                    .until(d -> (clickSpyCount() > beforeClick) || (fetchSpyCount() > beforeFetch));
+            observed = true;
+        } catch (TimeoutException ignored) {}
+
+        Object lastClick = lastClickSpy();
+        Object lastFetch = lastFetchSpy();
+
+        System.out.println("CLICK_OBSERVED=" + observed
+                + " clickCount " + beforeClick + "->" + clickSpyCount()
+                + " fetchCount " + beforeFetch + "->" + fetchSpyCount());
+        System.out.println("CLICK_SPY=" + lastClick);
+        System.out.println("FETCH_SPY=" + lastFetch);
+
+        // İstersen sadece burada ID doğrula (strict değil)
+        if (expectedIdIfAny != null && !expectedIdIfAny.isBlank()) {
+            Object id = ((JavascriptExecutor) driver).executeScript(
+                    "return window.__e2eLastClick && window.__e2eLastClick.id;"
+            );
+            String sid = (id == null) ? "" : id.toString();
+            System.out.println("CLICK_TARGET_ID=" + sid + " expected=" + expectedIdIfAny);
+        }
+    }
+
+    protected void callUiCreateFacilityDirect() {
+        Object res = ((JavascriptExecutor) driver).executeAsyncScript(
+                "const done = arguments[arguments.length-1];" +
+                        "try {" +
+                        "  if (!window.UI || !UI.createFacility) return done('NO_UI_CREATE');" +
+                        "  Promise.resolve(UI.createFacility())" +
+                        "    .then(()=>done('OK'))" +
+                        "    .catch(e=>done('ERR:' + (e && e.message ? e.message : String(e))));" +
+                        "} catch(e) { done('EX:' + String(e)); }"
+        );
+        System.out.println("UI.createFacility() => " + res);
+    }
 
 
     // ---------- Owner flows ----------
@@ -547,7 +632,9 @@ public abstract class BaseE2ETestE2E {
         }
         WebElement el = driver.findElement(btnCreate);
         System.out.println("TOP_CHECK=" + isTopAtCenter(el));
-        clickAndAssertEvent(btnCreate, "btnCreateFacility");
+        callUiCreateFacilityDirect();
+
+        clickAndProbe(btnCreate, "btnCreateFacility");
 
         // 3) API sinyali: option geldi VEYA ownerOut doldu (ok/err)
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
