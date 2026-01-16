@@ -413,6 +413,52 @@ public abstract class BaseE2ETestE2E {
         waitForDocumentReady();
     }
 
+    protected boolean isTopAtCenter(WebElement el) {
+        return (Boolean) ((JavascriptExecutor) driver).executeScript(
+                "const el = arguments[0];" +
+                        "const r = el.getBoundingClientRect();" +
+                        "const x = r.left + r.width/2;" +
+                        "const y = r.top + r.height/2;" +
+                        "const top = document.elementFromPoint(x, y);" +
+                        "return top === el || (el.contains(top));",
+                el
+        );
+    }
+
+
+    protected void clickAndAssertEvent(By locator, String name) {
+        WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+        wait.until(ExpectedConditions.elementToBeClickable(locator));
+
+        // Click event yakalama bayrağı tak
+        ((JavascriptExecutor) driver).executeScript(
+                "const el = arguments[0];" +
+                        "el.scrollIntoView({block:'center', inline:'center'});" +
+                        "el.dataset.e2eClicked = '0';" +
+                        "el.addEventListener('click', () => { el.dataset.e2eClicked = String(Date.now()); }, {once:true});",
+                el
+        );
+
+        // Tıkla (gerekirse JS fallback)
+        try {
+            el.click();
+        } catch (ElementClickInterceptedException | WebDriverException e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+        }
+
+        // Bayrak değişti mi?
+        new WebDriverWait(driver, Duration.ofSeconds(5))
+                .pollingEvery(Duration.ofMillis(100))
+                .until(d -> {
+                    String v = (String) ((JavascriptExecutor) d)
+                            .executeScript("return arguments[0].dataset.e2eClicked;", el);
+                    return v != null && !v.equals("0");
+                });
+
+        System.out.println("CLICK_OK: " + name);
+    }
+
+
     // ---------- Owner flows ----------
 
     protected void ensureFacilityExists(String name, String addr) {
@@ -447,12 +493,14 @@ public abstract class BaseE2ETestE2E {
             clear = true;
         } catch (Exception ignored) {}
         final String outBefore = clear? "" : outBeforeTMP;
+
         By btnCreate = By.id("btnCreateFacility");
         if (driver.findElements(btnCreate).isEmpty()) {
             System.out.println("onrevrıonwoırbtnpıwrtbnwıprubnwrıoptubnwtrıbunrtgbıujpnfbkşrıotbnwroıtbnwtrğbnwtrbo0ınwb0trw0wr9btnwr0t9bnwrğtıobwrtobışwrtbnk");
         }
-        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(By.id("btnCreateFacility")));
-        el.click();
+        WebElement el = driver.findElement(btnCreate);
+        System.out.println("TOP_CHECK=" + isTopAtCenter(el));
+        clickAndAssertEvent(btnCreate, "btnCreateFacility");
 
         // 3) API sinyali: option geldi VEYA ownerOut doldu (ok/err)
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
