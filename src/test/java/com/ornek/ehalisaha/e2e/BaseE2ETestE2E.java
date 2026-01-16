@@ -310,6 +310,75 @@ public abstract class BaseE2ETestE2E {
         }
     }
 
+
+    // ---------- OUT assertions (geri uyumlu) ----------
+
+    /**
+     * Geri uyumlu: Eski testler sadece assertOutContains("...") çağırıyor.
+     * Bu metod; sırayla memberOut -> ownerOut -> genel out id'leri içinde arar.
+     */
+    protected void assertOutContains(String expected) {
+        assertOutContainsAny(expected, "memberOut", "ownerOut", "out", "msg", "result");
+    }
+
+    /** Sadece memberOut kontrolü istiyorsan */
+    protected void assertMemberOutContains(String expected) {
+        assertOutContainsAny(expected, "memberOut");
+    }
+
+    /** Sadece ownerOut kontrolü istiyorsan */
+    protected void assertOwnerOutContains(String expected) {
+        assertOutContainsAny(expected, "ownerOut");
+    }
+
+    private void assertOutContainsAny(String expected, String... outIds) {
+        if (expected == null) expected = "";
+        final String exp = expected.trim();
+        if (exp.isEmpty()) fail("assertOutContains: expected boş olamaz");
+
+        WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
+        w.pollingEvery(Duration.ofMillis(250));
+
+        // Out element(ler)i sayfada var mı? En az biri görünsün/present olsun
+        boolean anyPresent = false;
+        for (String id : outIds) {
+            if (id == null || id.isBlank()) continue;
+            if (!driver.findElements(By.id(id)).isEmpty()) { anyPresent = true; break; }
+        }
+        if (!anyPresent) {
+            fail("Sayfada out alanı bulunamadı. aranan id'ler=" + String.join(",", outIds));
+        }
+
+        // Bekle: beklenen metin gelsin veya error-like çıksın
+        try {
+            w.until(d -> {
+                for (String id : outIds) {
+                    if (id == null || id.isBlank()) continue;
+                    String t = safeText(d, By.id(id));
+                    if (t != null && t.contains(exp)) return true;
+                    if (isErrorLike(t)) return true; // erken çıkıp altta fail mesajı basacağız
+                }
+                return false;
+            });
+        } catch (TimeoutException ignored) {}
+
+        // Final kontrol + debug
+        StringBuilder dbg = new StringBuilder();
+        boolean ok = false;
+        for (String id : outIds) {
+            if (id == null || id.isBlank()) continue;
+            String t = safeText(By.id(id));
+            dbg.append(id).append("='").append(t).append("' ");
+            if (t != null && t.contains(exp)) ok = true;
+        }
+
+        if (!ok) {
+            fail("Beklenen çıktı bulunamadı. expected='" + exp + "' " + dbg);
+        }
+    }
+
+
+
     // ---------- option helpers ----------
 
     protected void selectByContainsText(By selectLocator, String containsText) {
