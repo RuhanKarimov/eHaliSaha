@@ -442,7 +442,7 @@ public abstract class BaseE2ETestE2E {
         // Tıkla (gerekirse JS fallback)
         try {
             el.click();
-        } catch (ElementClickInterceptedException | WebDriverException e) {
+        } catch (WebDriverException e) {
             ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
         }
 
