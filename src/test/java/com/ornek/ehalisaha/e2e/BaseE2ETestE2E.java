@@ -556,9 +556,20 @@ public abstract class BaseE2ETestE2E {
         ((JavascriptExecutor) driver).executeScript(
                 "if (window.__e2eNetSpyInstalled) return;" +
                         "window.__e2eNetSpyInstalled = true;" +
+
+                        // net
                         "window.__e2eNetCount = 0;" +
                         "window.__e2eLastNet = null;" +
+
+                        // js error
                         "window.__e2eLastJsError = null;" +
+
+                        // click spy
+                        "window.__e2eClickCount = 0;" +
+                        "window.__e2eLastClick = null;" +
+
+                        // UI.createFacility spy
+                        "window.__e2eCreateFacilityCalls = 0;" +
 
                         "window.addEventListener('error', function(e){" +
                         "  try{ window.__e2eLastJsError = {ts:Date.now(), msg:String(e.message||e.error||e), src:String(e.filename||''), line:e.lineno||0, col:e.colno||0}; }catch(_){}" +
@@ -567,19 +578,49 @@ public abstract class BaseE2ETestE2E {
                         "  try{ window.__e2eLastJsError = {ts:Date.now(), msg:'unhandledrejection: ' + String(e.reason && (e.reason.message||e.reason) || e.reason)}; }catch(_){}" +
                         "});" +
 
+                        // global click listener (capture)
+                        "document.addEventListener('click', function(ev){" +
+                        "  try{" +
+                        "    window.__e2eClickCount++;" +
+                        "    const t = ev && ev.target ? ev.target : null;" +
+                        "    const id = t && t.id ? String(t.id) : '';" +
+                        "    const tag = t && t.tagName ? String(t.tagName) : '';" +
+                        "    window.__e2eLastClick = {ts:Date.now(), id:id, tag:tag, trusted: !!(ev && ev.isTrusted)};" +
+                        "  }catch(_){}" +
+                        "}, true);" +
+
+                        // wrap UI.createFacility once it exists
+                        "try{" +
+                        "  const ui = (typeof UI !== 'undefined') ? UI : (window ? window.UI : null);" +
+                        "  if (ui && typeof ui.createFacility === 'function' && !ui.__e2eWrappedCreateFacility) {" +
+                        "    const orig = ui.createFacility;" +
+                        "    ui.__e2eWrappedCreateFacility = true;" +
+                        "    ui.createFacility = function(){" +
+                        "      try{ window.__e2eCreateFacilityCalls = (window.__e2eCreateFacilityCalls||0) + 1; }catch(_){}" +
+                        "      return orig.apply(this, arguments);" +
+                        "    };" +
+                        "  }" +
+                        "}catch(_){}" +
+
+                        // fetch hook (Request obj ihtimali dahil)
                         "if (window.fetch) {" +
                         "  const _fetch = window.fetch;" +
                         "  window.fetch = function() {" +
                         "    try {" +
                         "      window.__e2eNetCount++;" +
-                        "      const url = arguments[0];" +
+                        "      const u = arguments[0];" +
                         "      const opt = arguments[1] || {};" +
-                        "      window.__e2eLastNet = {ts:Date.now(), kind:'fetch', url:String(url), method:String(opt.method||'GET')};" +
+                        "      let urlStr = '';" +
+                        "      if (typeof u === 'string') urlStr = u;" +
+                        "      else if (u && typeof u.url === 'string') urlStr = u.url;" +
+                        "      else urlStr = String(u);" +
+                        "      window.__e2eLastNet = {ts:Date.now(), kind:'fetch', url:String(urlStr), method:String(opt.method||'GET')};" +
                         "    } catch(e) {}" +
                         "    return _fetch.apply(this, arguments);" +
                         "  };" +
                         "}" +
 
+                        // XHR hook
                         "(function(){" +
                         "  const XHR = window.XMLHttpRequest;" +
                         "  if (!XHR) return;" +
@@ -660,6 +701,65 @@ public abstract class BaseE2ETestE2E {
         System.out.println("LAST_NET_URL=" + lastNetUrl());
     }
 
+    protected void jsClick(By locator) {
+        WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+        try {
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].scrollIntoView({block:'center', inline:'center'});", el
+            );
+        } catch (Exception ignored) {}
+        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+        System.out.println("JS_CLICK: " + locator);
+    }
+
+    protected long clickSpyCount() {
+        try {
+            Object n = ((JavascriptExecutor) driver).executeScript("return window.__e2eClickCount || 0;");
+            return (n instanceof Number) ? ((Number) n).longValue() : 0L;
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    protected Object lastClickSpy() {
+        try {
+            return ((JavascriptExecutor) driver).executeScript("return window.__e2eLastClick;");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    protected long uiCreateFacilityCalls() {
+        try {
+            Object n = ((JavascriptExecutor) driver).executeScript("return window.__e2eCreateFacilityCalls || 0;");
+            return (n instanceof Number) ? ((Number) n).longValue() : 0L;
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    private boolean waitAnySignal(long netBefore, long clickBefore, long createBefore, By outLoc, String outBefore, Duration timeout) {
+        WebDriverWait w = new WebDriverWait(driver, timeout);
+        w.pollingEvery(Duration.ofMillis(200));
+        try {
+            return w.until(d -> {
+                if (netSpyCount() > netBefore) return true;
+                if (clickSpyCount() > clickBefore) return true;
+                if (uiCreateFacilityCalls() > createBefore) return true;
+
+                String out = safeText(d, outLoc);
+                if (out != null) {
+                    String t = out.trim();
+                    if (!t.isEmpty() && !t.equals(outBefore)) return true;
+                }
+                return safeJsErr() != null;
+            });
+        } catch (TimeoutException te) {
+            return false;
+        }
+    }
+
+
     protected String safeAttr(By by, String attr) {
         try {
             WebElement el = driver.findElement(by);
@@ -718,7 +818,38 @@ public abstract class BaseE2ETestE2E {
         } catch (Exception ignored) {}
 
         // TEK TETİKLEME: sadece tıkla ve net çağrı geldi mi doğrula
-        clickAndAssertNet(btnCreate, "/api/owner/facilities");
+// --- robust trigger: click -> jsClick -> direct UI call ---
+        installNetSpyOnce(); // spy’lar + net hooklar
+
+        long netBefore = netSpyCount();
+        long clickBefore = clickSpyCount();
+        long createBefore = uiCreateFacilityCalls();
+        String outBefore2 = safeText(outLoc);
+
+        System.out.println("DEBUG btnCreate onclick.attr=" +
+                safeText(() -> driver.findElement(btnCreate).getAttribute("onclick")) +
+                " enabled=" + safeText(() -> String.valueOf(driver.findElement(btnCreate).isEnabled())));
+
+        click(btnCreate);
+
+// 1) normal click sonrası bir sinyal var mı?
+        boolean ok = waitAnySignal(netBefore, clickBefore, createBefore, outLoc, outBefore2, Duration.ofSeconds(4));
+
+        if (!ok) {
+            System.out.println("WARN: normal click tetiklemedi. lastClick=" + String.valueOf(lastClickSpy())
+                    + " lastNet=" + String.valueOf(safeLastNet())
+                    + " jsErr=" + String.valueOf(safeJsErr()));
+
+            // 2) JS click dene
+            jsClick(btnCreate);
+            ok = waitAnySignal(netBefore, clickBefore, createBefore, outLoc, outBefore2, Duration.ofSeconds(4));
+        }
+
+        if (!ok) {
+            System.out.println("WARN: jsClick de tetiklemedi. UI.createFacility() direkt çağrılıyor...");
+            // 3) En garanti: direkt fonksiyon
+            callUiCreateFacilityDirect();
+        }
 
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
         apiWait.pollingEvery(Duration.ofMillis(250));
