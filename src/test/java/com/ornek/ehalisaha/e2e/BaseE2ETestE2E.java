@@ -183,9 +183,40 @@ public abstract class BaseE2ETestE2E {
     protected void type(By locator, String text) {
         WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
         assertNotNull(el);
-        el.clear();
-        el.sendKeys(text);
+
+        try {
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].scrollIntoView({block:'center', inline:'center'});", el
+            );
+        } catch (Exception ignored) {}
+
+        // daha sağlam temizle
+        try { el.clear(); } catch (Exception ignored) {
+            try { ((JavascriptExecutor) driver).executeScript("arguments[0].value='';", el); } catch (Exception ignored2) {}
+        }
+
+        try { el.sendKeys(text); } catch (Exception ignored) {}
+
+        // yazı gerçekten input.value içine girdi mi?
+        String v = "";
+        try { v = Optional.ofNullable(el.getAttribute("value")).orElse(""); } catch (Exception ignored) {}
+
+        if (!v.contains(text)) {
+            // JS fallback + input/change event
+            ((JavascriptExecutor) driver).executeScript(
+                    "const el=arguments[0], val=arguments[1];" +
+                            "el.value=val;" +
+                            "el.dispatchEvent(new Event('input',{bubbles:true}));" +
+                            "el.dispatchEvent(new Event('change',{bubbles:true}));",
+                    el, text
+            );
+        }
+
+        String finalVal = "";
+        try { finalVal = Optional.ofNullable(el.getAttribute("value")).orElse(""); } catch (Exception ignored) {}
+        System.out.println("TYPE: " + locator + " value='" + finalVal + "'");
     }
+
 
     /**
      * Stabil click:
@@ -463,11 +494,37 @@ public abstract class BaseE2ETestE2E {
     // ---------- Refresh ----------
 
     protected void tryRefreshAll() {
+        // 1) Önce UI.refreshAll()'ı bekleyerek çalıştır (en stabil)
+        try {
+            String r = refreshAllAndWait();
+            if ("OK".equals(r)) return;
+        } catch (Exception ignored) {}
+
+        // 2) Fallback: eski buton click yolu
         By btnRefresh = By.cssSelector("button[onclick*='UI.refreshAll']");
         if (!driver.findElements(btnRefresh).isEmpty()) {
             try { click(btnRefresh); } catch (Exception ignored) {}
         }
     }
+
+    protected String refreshAllAndWait() {
+        Object res = ((JavascriptExecutor) driver).executeAsyncScript(
+                "const done = arguments[arguments.length-1];" +
+                        "try {" +
+                        "  const ui = (typeof UI !== 'undefined') ? UI : (window ? window.UI : null);" +
+                        "  if (!ui || typeof ui.refreshAll !== 'function') return done('NO_UI_REFRESH');" +
+                        "  Promise.resolve(ui.refreshAll())" +
+                        "    .then(()=>done('OK'))" +
+                        "    .catch(e=>done('ERR:' + (e && e.message ? e.message : String(e))));" +
+                        "} catch(e) { done('EX:' + String(e)); }"
+        );
+
+        String s = String.valueOf(res);
+        System.out.println("UI.refreshAll() => " + s);
+        return s;
+    }
+
+
 
     // ---------- login ----------
 
@@ -583,17 +640,36 @@ public abstract class BaseE2ETestE2E {
 
         click(locator);
 
-        new WebDriverWait(driver, Duration.ofSeconds(60))
-                .pollingEvery(Duration.ofMillis(250))
-                .until(d -> {
-                    long now = netSpyCount();
-                    if (now <= before) return false;
-                    String url = lastNetUrl();
-                    return mustContainUrlPart == null || mustContainUrlPart.isBlank() || url.contains(mustContainUrlPart);
-                });
-
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(60))
+                    .pollingEvery(Duration.ofMillis(250))
+                    .until(d -> {
+                        long now = netSpyCount();
+                        if (now <= before) return false;
+                        String url = lastNetUrl();
+                        return mustContainUrlPart == null || mustContainUrlPart.isBlank() || url.contains(mustContainUrlPart);
+                    });
+        } catch (TimeoutException te) {
+            fail("clickAndAssertNet timeout! expected~" + mustContainUrlPart + "\n" +
+                    "lastNet=" + safeLastNet() + "\n" +
+                    "jsErr=" + safeJsErr() + "\n" +
+                    "ownerOut=" + safeText(By.id("ownerOut")) + "\n" +
+                    "facName.value=" + safeAttr(By.id("facName"), "value") + "\n" +
+                    "facAddr.value=" + safeAttr(By.id("facAddr"), "value"));
+        }
         System.out.println("LAST_NET_URL=" + lastNetUrl());
     }
+
+    protected String safeAttr(By by, String attr) {
+        try {
+            WebElement el = driver.findElement(by);
+            String v = el.getAttribute(attr);
+            return v == null ? "" : v;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
 
     // ---------- Debug fallback (normal akışta kullanma) ----------
 
