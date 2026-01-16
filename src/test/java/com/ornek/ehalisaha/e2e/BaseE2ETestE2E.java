@@ -192,15 +192,16 @@ public abstract class BaseE2ETestE2E {
     }
 
     protected void click(By locator) {
-        WebElement el = driver.findElement(locator);
+        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(locator));
+        try { ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", el); } catch (Exception ignored) {}
         try {
+            assert el != null;
             el.click();
-            System.out.println("--------------------------------------------------Clicking element------------------------: " + locator + " ---------------Text: " + el);
         } catch (ElementClickInterceptedException e) {
             ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
         }
+        System.out.println("CLICK: " + locator);
     }
-
 
 
 
@@ -303,19 +304,6 @@ public abstract class BaseE2ETestE2E {
                 || t.contains("mevcut")
                 || t.contains("exists")
                 || t.contains("already");
-    }
-
-
-    protected boolean isOkLike(String s) {
-        if (s == null) return false;
-        String t = s.trim().toLowerCase();
-        return t.contains("ok")
-                || t.contains("başar")
-                || t.contains("oluştur")
-                || t.contains("created")
-                || t.contains("saved")
-                || t.contains("facilityid=")
-                || t.contains("id=");
     }
 
 
@@ -439,39 +427,83 @@ public abstract class BaseE2ETestE2E {
     }
 
 
-
-
-    protected void clickAndAssertEvent(By locator) {
-        WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
-        wait.until(ExpectedConditions.elementToBeClickable(locator));
-
-        // Click event yakalama bayrağı tak
+    protected void installClickSpyOnce() {
         ((JavascriptExecutor) driver).executeScript(
-                "const el = arguments[0];" +
-                        "el.scrollIntoView({block:'center', inline:'center'});" +
-                        "el.dataset.e2eClicked = '0';" +
-                        "el.addEventListener('click', () => { el.dataset.e2eClicked = String(Date.now()); }, {once:true});",
-                el
+                "if (window.__e2eClickSpyInstalled) return;" +
+                        "window.__e2eClickSpyInstalled = true;" +
+                        "window.__e2eClickCount = 0;" +
+                        "window.__e2eLastClick = null;" +
+                        "document.addEventListener('click', function(ev) {" +
+                        "  window.__e2eClickCount++;" +
+                        "  var t = ev.target;" +
+                        "  var txt = '';" +
+                        "  try { txt = (t && (t.innerText || t.textContent) || '').trim().slice(0,80); } catch(e) {}" +
+                        "  window.__e2eLastClick = {" +
+                        "    ts: Date.now()," +
+                        "    tag: t && t.tagName," +
+                        "    id:  t && t.id," +
+                        "    cls: t && t.className," +
+                        "    text: txt" +
+                        "  };" +
+                        "}, true);" // capture phase
         );
+    }
 
-        // Tıkla (gerekirse JS fallback)
+    protected long clickSpyCount() {
+        Object n = ((JavascriptExecutor) driver).executeScript("return window.__e2eClickCount || 0;");
+        return (n instanceof Number) ? ((Number) n).longValue() : 0L;
+    }
+
+    protected Object lastClickSpy() {
+        return ((JavascriptExecutor) driver).executeScript("return window.__e2eLastClick;");
+    }
+
+    protected void clickAndAssertEvent(By locator, String expectedIdIfAny) {
+        installClickSpyOnce();
+        long before = clickSpyCount();
+
+        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(locator));
         try {
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].scrollIntoView({block:'center', inline:'center'});", el
+            );
+        } catch (Exception ignored) {}
+
+        // normal click -> Actions -> JS fallback
+        try {
+            assert el != null;
             el.click();
-        } catch (WebDriverException e) {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+        } catch (Exception e1) {
+            try {
+                new org.openqa.selenium.interactions.Actions(driver)
+                        .moveToElement(el)
+                        .pause(Duration.ofMillis(50))
+                        .click()
+                        .perform();
+            } catch (Exception e2) {
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+            }
         }
 
-        // Bayrak değişti mi?
+        // sayfada click yakalandı mı?
         new WebDriverWait(driver, Duration.ofSeconds(5))
                 .pollingEvery(Duration.ofMillis(100))
-                .until(d -> {
-                    String v = (String) ((JavascriptExecutor) d)
-                            .executeScript("return arguments[0].dataset.e2eClicked;", el);
-                    return v != null && !v.equals("0");
-                });
+                .until(d -> clickSpyCount() > before);
 
-        System.out.println("CLICK_OK: " + "btnCreateFacility");
+        Object last = lastClickSpy();
+        System.out.println("CLICK_SPY=" + last);
+
+        // İstersen hedef ID'yi doğrula (btnCreateFacility gibi)
+        if (expectedIdIfAny != null && !expectedIdIfAny.isBlank()) {
+            Object id = ((JavascriptExecutor) driver).executeScript("return window.__e2eLastClick && window.__e2eLastClick.id;");
+            String sid = (id == null) ? "" : id.toString();
+            if (!expectedIdIfAny.equals(sid)) {
+                fail("Click yakalandı ama hedef farklı! expectedId=" + expectedIdIfAny + " actualId=" + sid + " last=" + last);
+            }
+        }
     }
+
+
 
 
     // ---------- Owner flows ----------
@@ -515,7 +547,7 @@ public abstract class BaseE2ETestE2E {
         }
         WebElement el = driver.findElement(btnCreate);
         System.out.println("TOP_CHECK=" + isTopAtCenter(el));
-        clickAndAssertEvent(btnCreate);
+        clickAndAssertEvent(btnCreate, "btnCreateFacility");
 
         // 3) API sinyali: option geldi VEYA ownerOut doldu (ok/err)
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
