@@ -53,6 +53,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
+                deleteDir()
                 checkout(
           changelog: false,
           poll: false,

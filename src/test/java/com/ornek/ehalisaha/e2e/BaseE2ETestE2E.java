@@ -451,7 +451,7 @@ public abstract class BaseE2ETestE2E {
         if (driver.findElements(btnCreate).isEmpty()) {
             System.out.println("onrevrıonwoırbtnpıwrtbnwıprubnwrıoptubnwtrıbunrtgbıujpnfbkşrıotbnwroıtbnwtrğbnwtrbo0ınwb0trw0wr9btnwr0t9bnwrğtıobwrtobışwrtbnk");
         }
-        WebElement el = driver.findElement(btnCreate);
+        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(By.id("btnCreateFacility")));
         el.click();
 
         // 3) API sinyali: option geldi VEYA ownerOut doldu (ok/err)
