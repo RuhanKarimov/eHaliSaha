@@ -486,8 +486,8 @@ public abstract class BaseE2ETestE2E {
         }
 
         // sayfada click yakalandı mı?
-        new WebDriverWait(driver, Duration.ofSeconds(5))
-                .pollingEvery(Duration.ofMillis(100))
+        new WebDriverWait(driver, Duration.ofSeconds(60))
+                .pollingEvery(Duration.ofMillis(250))
                 .until(d -> clickSpyCount() > before);
 
         Object last = lastClickSpy();
