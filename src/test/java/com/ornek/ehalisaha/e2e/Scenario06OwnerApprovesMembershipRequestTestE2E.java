@@ -10,7 +10,7 @@ public class Scenario06OwnerApprovesMembershipRequestTestE2E extends BaseE2ETest
     @Test
     void ownerApprovesPendingRequest() {
         loginOwner();
-        ensureFacilityExists("Arena Halısaha", "Merkez / Malatya");
+        ensureFacilityExists("Arena Halısaha");
         // Requests box should show a card and "Onayla" button
         click(By.xpath("//div[@id='reqBox']//button[contains(normalize-space(.),'Onayla')]"));
 

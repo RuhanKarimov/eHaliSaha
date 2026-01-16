@@ -9,11 +9,11 @@ public class Scenario03OwnerSetupSlotsPitchPricingTestE2E extends BaseE2ETestE2E
     @Test
     void ownerSetsSlotsCreatesPitchAndSetsPrice() {
         loginOwner();
-        ensureFacilityExists("Arena Halısaha", "Merkez / Malatya");
+        ensureFacilityExists("Arena Halısaha");
         setSlotsDayAndSave();
 
-        ensurePitchExists("Saha-1");
-        upsertPrice60(250);
+        ensurePitchExists();
+        upsertPrice60();
 
         assertTrue(byId("pricingBox").getText().contains("250"));
     }

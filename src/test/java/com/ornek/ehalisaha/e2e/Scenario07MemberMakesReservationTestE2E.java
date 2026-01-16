@@ -10,7 +10,7 @@ public class Scenario07MemberMakesReservationTestE2E extends BaseE2ETestE2E {
     @Test
     void memberMakesAReservation() {
         loginMember();
-        memberSelectFacilityAndPitch("Arena Halısaha", "Saha-1");
+        memberSelectFacilityAndPitch();
 
         // pick a free slot
         String slotLabel = pickFirstFreeSlotLabel();
@@ -31,7 +31,7 @@ public class Scenario07MemberMakesReservationTestE2E extends BaseE2ETestE2E {
 
         click(By.id("btnReserve"));
 
-        assertOutContains("memberOut", "Rezervasyon alındı");
+        assertOutContains("Rezervasyon alındı");
         // after success, the chosen slot should become full after refresh
         assertTrue(byId("slotGrid").getText().contains(slotLabel.split("\n")[0]));
     }

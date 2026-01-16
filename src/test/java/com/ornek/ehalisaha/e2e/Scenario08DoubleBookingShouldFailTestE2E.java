@@ -13,7 +13,7 @@ public class Scenario08DoubleBookingShouldFailTestE2E extends BaseE2ETestE2E {
     @Test
     void doubleBookingSameSlotShouldFailAndSlotShouldBeFull() {
         loginMember();
-        memberSelectFacilityAndPitch("Arena Halısaha", "Saha-1");
+        memberSelectFacilityAndPitch();
 
         // find a FULL slot (created by previous scenario) OR create one if none full
         WebElement grid = byId("slotGrid");
@@ -23,7 +23,7 @@ public class Scenario08DoubleBookingShouldFailTestE2E extends BaseE2ETestE2E {
             pickFirstFreeSlotLabel();
             click(By.id("btnFillPlayers"));
             click(By.id("btnReserve"));
-            assertOutContains("memberOut", "Rezervasyon alındı");
+            assertOutContains("Rezervasyon alındı");
             full = byId("slotGrid").findElements(By.cssSelector("button.slot.slot-full"));
         }
         assertFalse(full.isEmpty(), "Expected at least one occupied slot");
@@ -37,7 +37,7 @@ public class Scenario08DoubleBookingShouldFailTestE2E extends BaseE2ETestE2E {
         click(By.id("btnFillPlayers"));
         click(By.id("btnReserve"));
 
-        assertOutContains("memberOut", "Rezervasyon hatası");
+        assertOutContains("Rezervasyon hatası");
         // slot should still be full
         assertTrue(byId("slotGrid").getText().contains(label));
     }

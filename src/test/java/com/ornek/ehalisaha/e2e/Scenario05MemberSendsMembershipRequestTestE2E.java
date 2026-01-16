@@ -8,8 +8,8 @@ public class Scenario05MemberSendsMembershipRequestTestE2E extends BaseE2ETestE2
     @Test
     void memberSendsMembershipRequest() {
         loginMember();
-        memberSelectFacilityAndPitch("Arena Halısaha", "Saha-1");
+        memberSelectFacilityAndPitch();
         click(By.id("btnMembership"));
-        assertOutContains("memberOut", "Üyelik isteği");
+        assertOutContains("Üyelik isteği");
     }
 }

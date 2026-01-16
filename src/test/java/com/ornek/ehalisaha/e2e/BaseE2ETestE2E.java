@@ -9,6 +9,7 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.support.ui.*;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,7 +18,10 @@ import java.text.Normalizer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
+
+import java.net.URI;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -109,7 +113,8 @@ public abstract class BaseE2ETestE2E {
             }
         }
 
-        driver = new RemoteWebDriver(new URL(seleniumUrl()), options);
+        URL gridUrl = URI.create(seleniumUrl()).toURL();
+        driver = new RemoteWebDriver(gridUrl, options);
 
         wait = new WebDriverWait(driver, Duration.ofSeconds(60));
         wait.pollingEvery(Duration.ofMillis(250));
@@ -118,7 +123,7 @@ public abstract class BaseE2ETestE2E {
     @AfterEach
     void tearDown(TestInfo info) {
         String testName = info.getTestClass().map(Class::getSimpleName).orElse("Test")
-                + "_" + info.getTestMethod().map(m -> m.getName()).orElse("method");
+                + "_" + info.getTestMethod().map(Method::getName).orElse("method");
         testName = testName.replaceAll("[^a-zA-Z0-9._-]", "_");
 
         try {
@@ -137,6 +142,7 @@ public abstract class BaseE2ETestE2E {
                 try {
                     String html = driver.getPageSource();
                     Path p = dir.resolve(testName + ".html");
+                    assert html != null;
                     Files.writeString(p, html, StandardCharsets.UTF_8);
                 } catch (Exception ignored) {}
 
@@ -180,6 +186,7 @@ public abstract class BaseE2ETestE2E {
 
     protected void type(By locator, String text) {
         WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        assert el != null;
         el.clear();
         el.sendKeys(text);
     }
@@ -199,8 +206,8 @@ public abstract class BaseE2ETestE2E {
 
 // --------- out assertions (geri eklendi) ---------
 
-    protected void assertOutContains(String outId, String expected) {
-        By outLoc = By.id(outId);
+    protected void assertOutContains(String expected) {
+        By outLoc = By.id("memberOut");
 
         // out elementi var mı?
         wait.until(ExpectedConditions.presenceOfElementLocated(outLoc));
@@ -224,7 +231,7 @@ public abstract class BaseE2ETestE2E {
         if (finalText == null) finalText = "";
 
         if (!finalText.contains(expected)) {
-            fail("Beklenen çıktı bulunamadı. outId=" + outId +
+            fail("Beklenen çıktı bulunamadı. outId=" + "memberOut" +
                     " expected='" + expected + "'" +
                     " actual='" + finalText + "'");
         }
@@ -233,10 +240,11 @@ public abstract class BaseE2ETestE2E {
 
     protected void selectByContainsText(By selectLocator, String containsText) {
         WebElement sel = wait.until(ExpectedConditions.visibilityOfElementLocated(selectLocator));
+        assert sel != null;
         Select s = new Select(sel);
         for (WebElement opt : s.getOptions()) {
             String t = opt.getText();
-            if (t != null && t.contains(containsText)) {
+            if (t.contains(containsText)) {
                 s.selectByVisibleText(t);
                 return;
             }
@@ -247,7 +255,7 @@ public abstract class BaseE2ETestE2E {
     protected String safeText(By by) {
         try {
             String t = driver.findElement(by).getText();
-            return t == null ? "" : t.trim();
+            return t.trim();
         } catch (Exception e) {
             return "";
         }
@@ -256,7 +264,7 @@ public abstract class BaseE2ETestE2E {
     protected String safeText(WebDriver d, By by) {
         try {
             String t = d.findElement(by).getText();
-            return t == null ? "" : t.trim();
+            return t.trim();
         } catch (Exception e) {
             return "";
         }
@@ -354,7 +362,7 @@ public abstract class BaseE2ETestE2E {
         x = x.replace('\uFFFD', 'i');
 
         // Türkçe i/ı problemleri (test verilerini stabil yapar)
-        x = x.replace('ı', 'i').replace('İ', 'I').replace('i', 'i');
+        x = x.replace('ı', 'i').replace('İ', 'I');
 
         // Fazla boşlukları tek boşluk yap
         x = x.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
@@ -409,24 +417,31 @@ public abstract class BaseE2ETestE2E {
         type(By.id("p"), password);
         click(By.id("btn"));
 
-        wait.until(d -> d.getCurrentUrl().contains(expectedPath));
+        wait.until(d -> Objects.requireNonNull(d.getCurrentUrl()).contains(expectedPath));
         waitForDocumentReady();
     }
 
     protected boolean isTopAtCenter(WebElement el) {
-        return (Boolean) ((JavascriptExecutor) driver).executeScript(
+        Object res = ((JavascriptExecutor) driver).executeScript(
                 "const el = arguments[0];" +
+                        "if (!el) return null;" +
                         "const r = el.getBoundingClientRect();" +
                         "const x = r.left + r.width/2;" +
                         "const y = r.top + r.height/2;" +
                         "const top = document.elementFromPoint(x, y);" +
-                        "return top === el || (el.contains(top));",
+                        "return (top === el) || (el.contains(top));",
                 el
         );
+
+        boolean ok = Boolean.TRUE.equals(res);
+        if (res == null) System.out.println("TOP_CHECK: script returned null");
+        return ok;
     }
 
 
-    protected void clickAndAssertEvent(By locator, String name) {
+
+
+    protected void clickAndAssertEvent(By locator) {
         WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
         wait.until(ExpectedConditions.elementToBeClickable(locator));
 
@@ -455,13 +470,13 @@ public abstract class BaseE2ETestE2E {
                     return v != null && !v.equals("0");
                 });
 
-        System.out.println("CLICK_OK: " + name);
+        System.out.println("CLICK_OK: " + "btnCreateFacility");
     }
 
 
     // ---------- Owner flows ----------
 
-    protected void ensureFacilityExists(String name, String addr) {
+    protected void ensureFacilityExists(String name) {
         By selLoc = By.id("ownerFacilitySel");
         By outLoc = By.id("ownerOut");
 
@@ -482,7 +497,7 @@ public abstract class BaseE2ETestE2E {
 
         // 2) create
         type(By.id("facName"), name);
-        type(By.id("facAddr"), addr);
+        type(By.id("facAddr"), "Merkez / Malatya");
 
         // out'u CLICK'ten önce temizle (race olmasın)
         String outBeforeTMP = safeText(outLoc);
@@ -500,7 +515,7 @@ public abstract class BaseE2ETestE2E {
         }
         WebElement el = driver.findElement(btnCreate);
         System.out.println("TOP_CHECK=" + isTopAtCenter(el));
-        clickAndAssertEvent(btnCreate, "btnCreateFacility");
+        clickAndAssertEvent(btnCreate);
 
         // 3) API sinyali: option geldi VEYA ownerOut doldu (ok/err)
         WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
@@ -554,16 +569,16 @@ public abstract class BaseE2ETestE2E {
         if (isErrorLike(out)) fail("Slot kaydetme hata verdi. ownerOut=" + out);
     }
 
-    protected void ensurePitchExists(String pitchName) {
+    protected void ensurePitchExists() {
         By selLoc = By.id("ownerPitchSel");
         By outLoc = By.id("ownerOut");
 
-        if (hasOptionContaining(selLoc, pitchName)) {
-            selectByContainsText(selLoc, pitchName);
+        if (hasOptionContaining(selLoc, "Saha-1")) {
+            selectByContainsText(selLoc, "Saha-1");
             return;
         }
 
-        type(By.id("pitchName"), pitchName);
+        type(By.id("pitchName"), "Saha-1");
 
         By btn = By.cssSelector("button[onclick*='UI.createPitch']");
         if (driver.findElements(btn).isEmpty()) {
@@ -573,28 +588,28 @@ public abstract class BaseE2ETestE2E {
 
         WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
         w.pollingEvery(Duration.ofMillis(300));
-        w.until(d -> hasOptionContaining(d, selLoc, pitchName) || isErrorLike(safeText(d, outLoc)));
+        w.until(d -> hasOptionContaining(d, selLoc, "Saha-1") || isErrorLike(safeText(d, outLoc)));
 
-        if (!hasOptionContaining(selLoc, pitchName)) {
+        if (!hasOptionContaining(selLoc, "Saha-1")) {
             fail("Pitch dropdown'a düşmedi. ownerOut=" + safeText(outLoc) + " options=" + dumpOptions(selLoc));
         }
 
-        selectByContainsText(selLoc, pitchName);
+        selectByContainsText(selLoc, "Saha-1");
     }
 
-    protected void upsertPrice60(int price) {
+    protected void upsertPrice60() {
         By outLoc = By.id("ownerOut");
 
         Select dur = new Select(byId("priceDurationSel"));
         boolean has60 = dur.getOptions().stream().anyMatch(o -> {
             String t = o.getText();
-            return t != null && t.contains("60");
+            return t.contains("60");
         });
         if (!has60) fail("60 minutes duration option not found");
 
         for (WebElement opt : dur.getOptions()) {
             String t = opt.getText();
-            if (t != null && t.contains("60")) {
+            if (t.contains("60")) {
                 dur.selectByVisibleText(t);
                 break;
             }
@@ -603,7 +618,7 @@ public abstract class BaseE2ETestE2E {
         By priceBox = driver.findElements(By.id("priceValue")).isEmpty()
                 ? By.id("priceInput")
                 : By.id("priceValue");
-        type(priceBox, String.valueOf(price));
+        type(priceBox, String.valueOf(250));
 
         By saveBtn = By.cssSelector("button[onclick*='UI.savePrice']");
         if (driver.findElements(saveBtn).isEmpty()) {
@@ -615,20 +630,20 @@ public abstract class BaseE2ETestE2E {
         w.pollingEvery(Duration.ofMillis(300));
         w.until(d -> {
             String box = safeText(d, By.id("pricingBox"));
-            if (box.contains(String.valueOf(price))) return true;
+            if (box.contains(String.valueOf(250))) return true;
             return isErrorLike(safeText(d, outLoc));
         });
 
         String box = safeText(By.id("pricingBox"));
-        if (!box.contains(String.valueOf(price))) {
+        if (!box.contains(String.valueOf(250))) {
             fail("Price kaydedilemedi. ownerOut=" + safeText(outLoc) + " pricingBox=" + box);
         }
     }
 
     // ---------- Member flows ----------
 
-    protected void memberSelectFacilityAndPitch(String facilityName, String pitchName) {
-        selectByContainsText(By.id("facilitySel"), facilityName);
+    protected void memberSelectFacilityAndPitch() {
+        selectByContainsText(By.id("facilitySel"), "Arena Halısaha");
 
         WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
         w.pollingEvery(Duration.ofMillis(300));
@@ -637,7 +652,7 @@ public abstract class BaseE2ETestE2E {
                 Select p = new Select(d.findElement(By.id("pitchSel")));
                 for (WebElement opt : p.getOptions()) {
                     String t = opt.getText();
-                    if (t != null && t.contains(pitchName)) return true;
+                    if (t.contains("Saha-1")) return true;
                 }
                 return false;
             } catch (Exception e) {
@@ -645,7 +660,7 @@ public abstract class BaseE2ETestE2E {
             }
         });
 
-        selectByContainsText(By.id("pitchSel"), pitchName);
+        selectByContainsText(By.id("pitchSel"), "Saha-1");
     }
 
     protected String pickFirstFreeSlotLabel() {
@@ -662,7 +677,7 @@ public abstract class BaseE2ETestE2E {
             String cls = Optional.ofNullable(b.getAttribute("class")).orElse("").toLowerCase();
             if (cls.contains("slot-full") || cls.contains("full") || cls.contains("disabled")) continue;
 
-            String label = Optional.ofNullable(b.getText()).orElse("").trim();
+            String label = Optional.of(b.getText()).orElse("").trim();
             if (label.isEmpty()) label = cls;
 
             try {

@@ -8,12 +8,12 @@ public class Scenario10MembershipAlreadyActiveShouldFailTestE2E extends BaseE2ET
     @Test
     void memberCannotSendMembershipRequestWhenAlreadyActive() {
         loginMember();
-        memberSelectFacilityAndPitch("Arena Halısaha", "Saha-1");
+        memberSelectFacilityAndPitch();
 
         click(By.id("btnMembership"));
         // second click should fail (already active or already requested)
         click(By.id("btnMembership"));
 
-        assertOutContains("memberOut", "Üyelik isteği hatası");
+        assertOutContains("Üyelik isteği hatası");
     }
 }
