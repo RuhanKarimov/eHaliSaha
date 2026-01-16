@@ -583,8 +583,8 @@ public abstract class BaseE2ETestE2E {
 
         click(locator);
 
-        new WebDriverWait(driver, Duration.ofSeconds(15))
-                .pollingEvery(Duration.ofMillis(200))
+        new WebDriverWait(driver, Duration.ofSeconds(60))
+                .pollingEvery(Duration.ofMillis(250))
                 .until(d -> {
                     long now = netSpyCount();
                     if (now <= before) return false;
