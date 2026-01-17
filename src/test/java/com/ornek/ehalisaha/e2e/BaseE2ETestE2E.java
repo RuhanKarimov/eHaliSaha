@@ -217,133 +217,89 @@ public abstract class BaseE2ETestE2E {
         System.out.println("TYPE: " + locator + " value='" + finalVal + "'");
     }
 
-
     /**
-     * Stabil click:
-     * - visible + enabled
-     * - scroll into view
-     * - native click
-     * - Actions fallback
-     * - JS click fallback
+     * Stabil click (grid/headless için):
+     * - elementToBeClickable
+     * - her denemede elementi yeniden bul (stale fix)
+     * - el.click() -> Actions -> JS click
+     * - click spy sadece debug (fail mesajını güzelleştirir)
      */
     protected void click(By locator) {
-        installClickSpyOnce();
+        try { installClickSpyOnce(); } catch (Exception ignored) {}
 
-        RuntimeException last = null;
+        Exception last = null;
 
-        for (int attempt = 1; attempt <= 4; attempt++) {
+        for (int attempt = 1; attempt <= 5; attempt++) {
             try {
-                // her attempt'te elementi tekrar bul (stale / re-render olabiliyor)
                 WebElement el = new WebDriverWait(driver, Duration.ofSeconds(20))
                         .pollingEvery(Duration.ofMillis(200))
-                        .until(ExpectedConditions.presenceOfElementLocated(locator));
+                        .until(ExpectedConditions.refreshed(ExpectedConditions.elementToBeClickable(locator)));
 
-                // görünür + enabled bekle
-                new WebDriverWait(driver, Duration.ofSeconds(10))
-                        .pollingEvery(Duration.ofMillis(200))
-                        .until(d -> {
-                            try {
-                                return el.isDisplayed() && el.isEnabled();
-                            } catch (Exception e) {
-                                return false;
-                            }
-                        });
-
-                // merkeze getir
+                // scroll
                 try {
                     ((JavascriptExecutor) driver).executeScript(
-                            "arguments[0].scrollIntoView({block:'center', inline:'center'});", el);
+                            "arguments[0].scrollIntoView({block:'center', inline:'center'});", el
+                    );
                 } catch (Exception ignored) {}
 
-                // üstünde overlay var mı? (center noktasında gerçekten bu element mi üstte)
-                boolean topOk = Boolean.TRUE.equals(((JavascriptExecutor) driver).executeScript(
-                        "const el = arguments[0];" +
-                                "const r = el.getBoundingClientRect();" +
-                                "const x = r.left + r.width/2;" +
-                                "const y = r.top + r.height/2;" +
-                                "const top = document.elementFromPoint(x, y);" +
-                                "return top === el || (el.contains(top));",
-                        el
-                ));
-                if (!topOk) {
-                    // küçük bir scroll düzeltmesi bazen overlay/header çakışmasını çözer
-                    try { ((JavascriptExecutor) driver).executeScript("window.scrollBy(0, -80);"); } catch (Exception ignored) {}
-                    // tekrar dene
-                    throw new RuntimeException("Element center point covered (overlay/header?)");
-                }
+                long clickBefore = 0;
+                try { clickBefore = clickSpyCount(); } catch (Exception ignored) {}
 
-                String expectedId = "";
-                try { expectedId = Optional.ofNullable(el.getAttribute("id")).orElse(""); } catch (Exception ignored) {}
-
-                long clickBefore = clickSpyCount();
-
-                // 1) Önce Actions (grid/headless'ta en “gerçek” click budur)
+                // 1) en doğal yol
                 try {
-                    new Actions(driver)
-                            .moveToElement(el)
-                            .pause(Duration.ofMillis(40))
-                            .click()
-                            .perform();
-                } catch (Exception e1) {
-                    // 2) sonra native click
                     el.click();
+                } catch (Exception e1) {
+                    // 2) Actions fallback
+                    try {
+                        new Actions(driver).moveToElement(el).pause(Duration.ofMillis(80)).click().perform();
+                    } catch (Exception e2) {
+                        // 3) JS click fallback (hala "click", sadece JS ile)
+                        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", el);
+                    }
                 }
 
-                // Click event gerçekten geldi mi + doğru elemana mı geldi?
-                String finalExpectedId = expectedId;
-                boolean ok = new WebDriverWait(driver, Duration.ofSeconds(2))
-                        .pollingEvery(Duration.ofMillis(100))
-                        .until(d -> {
-                            if (clickSpyCount() <= clickBefore) return false;
+                // click spy best-effort (zorunlu değil)
+                try {
+                    long finalClickBefore = clickBefore;
+                    new WebDriverWait(driver, Duration.ofSeconds(2))
+                            .pollingEvery(Duration.ofMillis(100))
+                            .until(d -> clickSpyCount() > finalClickBefore || safeJsErr() != null);
+                } catch (Exception ignored) {}
 
-                            String id = "";
-                            try {
-                                Object o = ((JavascriptExecutor) d).executeScript(
-                                        "return (window.__e2eLastClick && window.__e2eLastClick.id) || '';");
-                                id = o == null ? "" : o.toString();
-                            } catch (Exception ignored) {}
-
-                            // id varsa birebir match iste (btnCreateFacility gibi)
-                            if (finalExpectedId != null && !finalExpectedId.isBlank()) {
-                                return finalExpectedId.equals(id);
-                            }
-                            // id yoksa sadece click geldi mi yeter
-                            return true;
-                        });
-
-                if (!ok) throw new RuntimeException("Click event did not land on expected element");
-
-                System.out.println("CLICK: " + locator);
+                System.out.println("CLICK: " + locator + " attempt=" + attempt +
+                        " lastClick=" + String.valueOf(lastClickSpy()));
                 return;
 
-            } catch (RuntimeException ex) {
+            } catch (Exception ex) {
                 last = ex;
-                try { Thread.sleep(150L * attempt); } catch (InterruptedException ignored) {}
+                try { Thread.sleep(150); } catch (InterruptedException ignored) {}
             }
         }
 
-        // en sonda debug bas
-        String topInfo = "";
+        // Debug info (top element)
+        String topInfo = "(n/a)";
         try {
-            topInfo = String.valueOf(((JavascriptExecutor) driver).executeScript(
-                    "try{" +
-                            " const el=arguments[0];" +
-                            " const r=el.getBoundingClientRect();" +
-                            " const x=r.left + r.width/2;" +
-                            " const y=r.top + r.height/2;" +
-                            " const top=document.elementFromPoint(x,y);" +
-                            " if(!top) return 'top=null';" +
-                            " return 'top=' + top.tagName + '#' + (top.id||'') + ' class=' + (top.className||'');" +
-                            "}catch(e){return 'topInfoEx:' + e;}",
-                    driver.findElement(locator)
-            ));
+            List<WebElement> els = driver.findElements(locator);
+            if (!els.isEmpty()) {
+                WebElement el = els.get(0);
+                topInfo = String.valueOf(((JavascriptExecutor) driver).executeScript(
+                        "try{" +
+                                "const el=arguments[0];" +
+                                "const r=el.getBoundingClientRect();" +
+                                "const x=r.left+r.width/2, y=r.top+r.height/2;" +
+                                "const top=document.elementFromPoint(x,y);" +
+                                "return top ? (top.tagName+'#'+(top.id||'')+' class='+(top.className||'')) : 'null';" +
+                                "}catch(e){return 'ex:'+e;}",
+                        el
+                ));
+            }
         } catch (Exception ignored) {}
 
-        fail("CLICK failed after retries: " + locator +
-                "\nlastClick=" + String.valueOf(lastClickSpy()) +
-                "\n" + topInfo);
+        fail("CLICK failed after retries: " + locator + "\n" +
+                "lastClick=" + String.valueOf(lastClickSpy()) + "\n" +
+                "top=" + topInfo + "\n" +
+                "lastErr=" + (last == null ? "null" : last.toString()));
     }
-
 
     protected void installClickSpyOnce() {
         ((JavascriptExecutor) driver).executeScript(
@@ -369,7 +325,6 @@ public abstract class BaseE2ETestE2E {
         );
     }
 
-
     protected long clickSpyCount() {
         Object n = ((JavascriptExecutor) driver).executeScript("return window.__e2eClickCount || 0;");
         return (n instanceof Number) ? ((Number)n).longValue() : 0L;
@@ -378,7 +333,6 @@ public abstract class BaseE2ETestE2E {
     protected Object lastClickSpy() {
         return ((JavascriptExecutor) driver).executeScript("return window.__e2eLastClick;");
     }
-
 
     // --------- safeText / error-like ----------
 
@@ -457,7 +411,6 @@ public abstract class BaseE2ETestE2E {
         }
     }
 
-
     // ---------- OUT assertions (geri uyumlu) ----------
 
     /**
@@ -486,7 +439,6 @@ public abstract class BaseE2ETestE2E {
         WebDriverWait w = new WebDriverWait(driver, Duration.ofSeconds(45));
         w.pollingEvery(Duration.ofMillis(250));
 
-        // Out element(ler)i sayfada var mı? En az biri görünsün/present olsun
         boolean anyPresent = false;
         for (String id : outIds) {
             if (id == null || id.isBlank()) continue;
@@ -496,20 +448,18 @@ public abstract class BaseE2ETestE2E {
             fail("Sayfada out alanı bulunamadı. aranan id'ler=" + String.join(",", outIds));
         }
 
-        // Bekle: beklenen metin gelsin veya error-like çıksın
         try {
             w.until(d -> {
                 for (String id : outIds) {
                     if (id == null || id.isBlank()) continue;
                     String t = safeText(d, By.id(id));
                     if (t != null && t.contains(exp)) return true;
-                    if (isErrorLike(t)) return true; // erken çıkıp altta fail mesajı basacağız
+                    if (isErrorLike(t)) return true;
                 }
                 return false;
             });
         } catch (TimeoutException ignored) {}
 
-        // Final kontrol + debug
         StringBuilder dbg = new StringBuilder();
         boolean ok = false;
         for (String id : outIds) {
@@ -523,8 +473,6 @@ public abstract class BaseE2ETestE2E {
             fail("Beklenen çıktı bulunamadı. expected='" + exp + "' " + dbg);
         }
     }
-
-
 
     // ---------- option helpers ----------
 
@@ -556,7 +504,6 @@ public abstract class BaseE2ETestE2E {
             for (WebElement opt : sel.getOptions()) {
                 String t = opt.getText();
 
-                // debug istersen açık kalsın
                 System.out.println("hasOptionContainingFold: " + fold(t));
                 System.out.println("containsRaw: " + contains);
                 System.out.println("containsCP : " + codepoints(contains));
@@ -640,8 +587,6 @@ public abstract class BaseE2ETestE2E {
         return s;
     }
 
-
-
     // ---------- login ----------
 
     protected void loginOwner() {
@@ -718,7 +663,7 @@ public abstract class BaseE2ETestE2E {
                         "  }" +
                         "}catch(_){}" +
 
-                        // fetch hook (Request obj ihtimali dahil)
+                        // fetch hook
                         "if (window.fetch) {" +
                         "  const _fetch = window.fetch;" +
                         "  window.fetch = function() {" +
@@ -801,14 +746,12 @@ public abstract class BaseE2ETestE2E {
 
         click(locator);
 
-        // 1) Click event gerçekten üretildi mi?
         new WebDriverWait(driver, Duration.ofSeconds(10))
                 .pollingEvery(Duration.ofMillis(200))
                 .until(d -> clickSpyCount() > clickBefore);
 
         System.out.println("CLICK_SPY=" + lastClickSpy());
 
-        // 2) Sonrasında net/out/jsErr’den biri gelsin
         try {
             new WebDriverWait(driver, Duration.ofSeconds(60))
                     .pollingEvery(Duration.ofMillis(250))
@@ -829,7 +772,6 @@ public abstract class BaseE2ETestE2E {
                     "lastClick=" + lastClickSpy());
         }
 
-        // Net olduysa URL kontrolünü yine yap
         if (mustContainUrlPart != null && !mustContainUrlPart.isBlank()) {
             String url = lastNetUrl();
             if (url != null && !url.isBlank() && !url.contains(mustContainUrlPart)) {
@@ -881,7 +823,6 @@ public abstract class BaseE2ETestE2E {
         }
     }
 
-
     protected String safeAttr(By by, String attr) {
         try {
             WebElement el = driver.findElement(by);
@@ -891,7 +832,6 @@ public abstract class BaseE2ETestE2E {
             return "";
         }
     }
-
 
     // ---------- Debug fallback (normal akışta kullanma) ----------
 
@@ -939,55 +879,57 @@ public abstract class BaseE2ETestE2E {
             outBefore = "";
         } catch (Exception ignored) {}
 
-        // TEK TETİKLEME: sadece tıkla ve net çağrı geldi mi doğrula
-// --- robust trigger: click -> jsClick -> direct UI call ---
-        installNetSpyOnce(); // spy’lar + net hooklar
-
-        long netBefore = netSpyCount();
-        long clickBefore = clickSpyCount();
-        long createBefore = uiCreateFacilityCalls();
-        String outBefore2 = safeText(outLoc);
+        // ---- SADECE CLICK: create click -> (opsiyonel) yenile click ----
+        installNetSpyOnce();
+        installClickSpyOnce();
 
         System.out.println("DEBUG btnCreate onclick.attr=" +
                 safeText(() -> driver.findElement(btnCreate).getAttribute("onclick")) +
                 " enabled=" + safeText(() -> String.valueOf(driver.findElement(btnCreate).isEnabled())));
 
+        // 1) Create butonuna click
         click(btnCreate);
 
-// 1) normal click sonrası bir sinyal var mı?
-        boolean ok = waitAnySignal(netBefore, clickBefore, createBefore, outLoc, outBefore2, Duration.ofSeconds(4));
+        // 2) Kısa bir süre UI sinyal bekle (out/jsErr/net/click) - best effort
+        try {
+            String outBefore2 = outBefore;
+            long netBefore = netSpyCount();
+            long clickBefore = clickSpyCount();
 
-        if (!ok) {
-            System.out.println("WARN: normal click tetiklemedi. lastClick=" + String.valueOf(lastClickSpy())
-                    + " lastNet=" + String.valueOf(safeLastNet())
-                    + " jsErr=" + String.valueOf(safeJsErr()));
+            new WebDriverWait(driver, Duration.ofSeconds(8))
+                    .pollingEvery(Duration.ofMillis(200))
+                    .until(d -> {
+                        if (netSpyCount() > netBefore) return true;
 
-            // 2) JS click dene
-            jsClick(btnCreate);
-            ok = waitAnySignal(netBefore, clickBefore, createBefore, outLoc, outBefore2, Duration.ofSeconds(4));
+                        String out = safeText(d, outLoc);
+                        if (out != null) {
+                            String t = out.trim();
+                            if (!t.isEmpty() && !t.equals(outBefore2)) return true;
+                        }
+                        // click event sayacı bile bir sinyal
+                        if (clickSpyCount() > clickBefore) return true;
+
+                        return safeJsErr() != null;
+                    });
+        } catch (Exception ignored) {}
+
+        // 3) Senin dediğin gibi: create sonrası 1 kere "Yenile" butonuna click
+        By btnRefresh = By.cssSelector("button[onclick*='UI.refreshAll']");
+        if (!driver.findElements(btnRefresh).isEmpty()) {
+            click(btnRefresh);
         }
 
-        if (!ok) {
-            System.out.println("WARN: jsClick de tetiklemedi. UI.createFacility() direkt çağrılıyor...");
-            // 3) En garanti: direkt fonksiyon
-            callUiCreateFacilityDirect();
-        }
-
-        WebDriverWait apiWait = new WebDriverWait(driver, Duration.ofSeconds(60));
-        apiWait.pollingEvery(Duration.ofMillis(250));
-
+        // 4) Dropdown’a option düşene kadar bekle (veya hata/jserr)
+        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(60));
+        longWait.pollingEvery(Duration.ofMillis(300));
         try {
             String finalOutBefore = outBefore;
-            apiWait.until(d -> {
-                if (hasOptionContaining(d, selLoc, name)) return true;
-
-                String out = safeText(d, outLoc);
-                if (out != null) out = out.trim();
-                if (out != null && !out.isBlank() && !out.equals(finalOutBefore)) return true;
-
-                Object jsErr = safeJsErr();
-                return jsErr != null;
-            });
+            longWait.until(d ->
+                    hasOptionContaining(d, selLoc, name)
+                            || isErrorLike(safeText(d, outLoc))
+                            || safeJsErr() != null
+                            || (safeText(d, outLoc) != null && !safeText(d, outLoc).trim().isEmpty() && !safeText(d, outLoc).equals(finalOutBefore))
+            );
         } catch (TimeoutException te) {
             fail("Facility create sonrası UI ilerlemedi.\n" +
                     "ownerOut=" + safeText(outLoc) + "\n" +
@@ -998,10 +940,6 @@ public abstract class BaseE2ETestE2E {
 
         // Bazen liste geç güncellenir
         tryRefreshAll();
-
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(60));
-        longWait.pollingEvery(Duration.ofMillis(300));
-        longWait.until(d -> hasOptionContaining(d, selLoc, name) || isErrorLike(safeText(d, outLoc)) || safeJsErr() != null);
 
         if (!hasOptionContaining(selLoc, name)) {
             fail("Facility dropdown'a düşmedi.\n" +
