@@ -587,6 +587,11 @@ public abstract class BaseE2ETestE2E {
         return s;
     }
 
+    protected void log(String msg) {
+        System.out.println(msg);
+    }
+
+
     // ---------- login ----------
 
     protected void loginOwner() {
