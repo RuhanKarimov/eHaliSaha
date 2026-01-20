@@ -66,11 +66,11 @@
         <div class="mt-5 grid md:grid-cols-2 gap-4">
           <div>
             <label class="text-sm" style="color:var(--muted)">Yeni facility adı</label>
-            <input id="facName" class="input mt-2" placeholder="Örn: Arena Halısaha">
+            <input id="facName" class="input mt-2" placeholder="Örn: Arena Halısaha" aria-label="Tesis adı">
           </div>
           <div>
             <label class="text-sm" style="color:var(--muted)">Adres</label>
-            <input id="facAddr" class="input mt-2" placeholder="Örn: Merkez / Malatya">
+            <input id="facAddr" class="input mt-2" placeholder="Örn: Merkez / Malatya" aria-label="Tesis adresi">
           </div>
         </div>
 
@@ -107,12 +107,12 @@
         <div class="mt-5 grid md:grid-cols-2 gap-4">
           <div>
             <label class="text-sm" style="color:var(--muted)">Facility</label>
-            <select id="ownerFacilitySel" class="input mt-2" onchange="UI.onFacilityChanged()"></select>
+            <select id="ownerFacilitySel" class="input mt-2" onchange="UI.onFacilityChanged()" aria-label="Tesis seçimi"></select>
           </div>
 
           <div>
             <label class="text-sm" style="color:var(--muted)">Pitch</label>
-            <select id="ownerPitchSel" class="input mt-2" onchange="UI.loadPricing()"></select>
+            <select id="ownerPitchSel" class="input mt-2" onchange="UI.loadPricing()" aria-label="Saha seçimi"></select>
           </div>
         </div>
 
@@ -155,7 +155,7 @@
             <div class="mt-4">
               <label class="text-sm" style="color:var(--muted)">Yeni pitch adı</label>
               <div class="flex gap-3 mt-2">
-                <input id="pitchName" class="input" placeholder="Örn: Saha-2">
+                <input id="pitchName" class="input" placeholder="Örn: Saha-2" aria-label="Saha adı">
                 <button class="btn btn-ghost" onclick="UI.createPitch()">Ekle</button>
               </div>
               <div class="mt-2 text-xs" style="color:var(--muted2)">
@@ -170,8 +170,8 @@
               </div>
 
               <div class="mt-3 grid grid-cols-3 gap-3">
-                <select id="priceDurationSel" class="input"></select>
-                <input id="priceValue" class="input" placeholder="Örn: 250">
+                <select id="priceDurationSel" class="input" aria-label="Süre (dakika)"></select>
+                <input id="priceValue" class="input" placeholder="Örn: 250" aria-label="Fiyat" inputmode="numeric">
                 <button class="btn btn-primary" onclick="UI.upsertPricing()">Kaydet</button>
               </div>
 
