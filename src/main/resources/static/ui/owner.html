@@ -7,7 +7,7 @@
   <title>Owner Panel | eHalisaha</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/ui/app.css"/>
+  <link rel="stylesheet" href="/ui/owner.css"/>
 </head>
 
 <body class="eh-app min-h-screen">
@@ -75,10 +75,15 @@
         </div>
 
         <div class="mt-4 flex flex-wrap gap-3">
-          <button id="btnCreateFacility" class="btn btn-primary shadow-soft" onclick="UI.createFacility()">
+          <button
+                  id="btnCreateFacility"
+                  type="button"
+                  class="btn btn-primary shadow-soft"
+                  onclick="UI.createFacility(event)">
             Facility oluştur
           </button>
-          <button class="btn btn-ghost" onclick="UI.refreshAll()">Yenile</button>
+
+          <button type="button" class="btn btn-ghost" onclick="UI.refreshAll(event)">Yenile</button>
         </div>
 
         <!-- ✅ ID aynı: ownerOut -->

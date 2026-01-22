@@ -428,7 +428,11 @@ window.UI = (function () {
         notice("Slot ön ayarı uygulandı ✅", "ok");
     }
 
-    async function createFacility() {
+
+    UI.createFacility = async function (e) {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+
         const name = (el("facName")?.value || "").trim();
         const address = (el("facAddr")?.value || "").trim();
         if (!name) { notice("Facility adı boş olamaz.", "warn"); return; }
@@ -436,18 +440,21 @@ window.UI = (function () {
         try {
             const created = await EH.API.post("/api/owner/facilities", { name, address });
             notice("Facility oluşturuldu ✅", "ok", created);
+
+            // varsa hızlı güncelle
             state.facilities.push(created);
             renderFacilities();
-            if(created?.id) el("ownerFacilitySel").value = String(created.id);
+            if (created?.id) el("ownerFacilitySel").value = String(created.id);
 
+            // sonra API’den kesin senkronla
             await loadFacilities();
             if (created?.id) el("ownerFacilitySel").value = String(created.id);
 
             await onFacilityChanged();
-        } catch (e) {
-            notice("Facility oluşturma hatası ❌\n" + parseErr(e), "err", e?.body);
+        } catch (err) {
+            notice("Facility oluşturma hatası ❌\n" + parseErr(err), "err", err?.body);
         }
-    }
+    };
 
     async function createPitch() {
         const facilityId = selectedFacilityId();
