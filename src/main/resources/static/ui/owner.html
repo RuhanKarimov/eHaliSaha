@@ -63,29 +63,55 @@
           <span class="badge">Europe/Istanbul</span>
         </div>
 
-        <div class="mt-5 grid md:grid-cols-2 gap-4">
-          <div>
-            <label class="text-sm" style="color:var(--muted)">Yeni facility adı</label>
-            <input id="facName" class="input mt-2" placeholder="Örn: Arena Halısaha" aria-label="Tesis adı">
-          </div>
-          <div>
-            <label class="text-sm" style="color:var(--muted)">Adres</label>
-            <input id="facAddr" class="input mt-2" placeholder="Örn: Merkez / Malatya" aria-label="Tesis adresi">
-          </div>
-        </div>
+        <!-- ✅ FORM: Enter ile submit + tek noktadan create -->
+        <form id="facilityForm" class="mt-5" onsubmit="UI.createFacility(event)">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label for="facName" class="text-sm" style="color:var(--muted)">Yeni facility adı</label>
+              <input
+                      id="facName"
+                      name="facName"
+                      class="input mt-2"
+                      placeholder="Örn: Arena Halısaha"
+                      aria-label="Tesis adı"
+                      autocomplete="off"
+                      required
+              >
+            </div>
 
-        <div class="mt-4 flex flex-wrap gap-3">
-          <button type="button" id="btnCreateFacility"
-                  class="btn btn-primary shadow-soft"
-                  onclick="UI.createFacility(event)">
-            Facility oluştur
-          </button>
+            <div>
+              <label for="facAddr" class="text-sm" style="color:var(--muted)">Adres</label>
+              <input
+                      id="facAddr"
+                      name="facAddr"
+                      class="input mt-2"
+                      placeholder="Örn: Merkez / Malatya"
+                      aria-label="Tesis adresi"
+                      autocomplete="off"
+              >
+            </div>
+          </div>
 
-          <button type="button" class="btn btn-ghost"
-                  onclick="UI.refreshAll(event)">
-            Yenile
-          </button>
-        </div>
+          <div class="mt-4 flex flex-wrap gap-3">
+            <!-- ✅ submit: form submit event’i UI.createFacility’e düşer -->
+            <button
+                    type="submit"
+                    id="btnCreateFacility"
+                    class="btn btn-primary shadow-soft"
+            >
+              Facility oluştur
+            </button>
+
+            <!-- ✅ refresh: submit olmasın -->
+            <button
+                    type="button"
+                    class="btn btn-ghost"
+                    onclick="UI.refreshAll(event)"
+            >
+              Yenile
+            </button>
+          </div>
+        </form>
 
         <!-- ✅ ID aynı: ownerOut -->
         <div class="mt-5 notice">
@@ -99,6 +125,7 @@
           <div id="ownerOut" class="noticeBody">Hazır ✅</div>
         </div>
       </div>
+
 
       <!-- FACILITY SELECT + SLOTS + PITCH + PRICING -->
       <div class="p-6 rounded-3xl glass shadow-soft">
