@@ -341,7 +341,7 @@ body.loaded .anim.delay3{ animation-delay: 260ms; }
     );
     opacity: 0;
     transition: opacity 200ms var(--easeOut);
-    pointer-events:none !important;
+    pointer-events:none;
 }
 .btn-primary:hover::before{ opacity: 1; }
 
@@ -361,7 +361,7 @@ body.loaded .anim.delay3{ animation-delay: 260ms; }
     background: linear-gradient(90deg, transparent, rgb(var(--eh-teal-400) / .26), transparent);
     transform: rotate(18deg);
     opacity: 0;
-    pointer-events: none !important;
+    pointer-events: none;
 }
 .btn-primary:hover::after{
     animation: sweep 900ms var(--easeOut) 1;

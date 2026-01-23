@@ -428,8 +428,7 @@ window.UI = (function () {
         notice("Slot ön ayarı uygulandı ✅", "ok");
     }
 
-
-    UI.createFacility = async function (e) {
+    async function createFacility(e) {
         e?.preventDefault?.();
         e?.stopPropagation?.();
 
@@ -441,12 +440,10 @@ window.UI = (function () {
             const created = await EH.API.post("/api/owner/facilities", { name, address });
             notice("Facility oluşturuldu ✅", "ok", created);
 
-            // varsa hızlı güncelle
             state.facilities.push(created);
             renderFacilities();
             if (created?.id) el("ownerFacilitySel").value = String(created.id);
 
-            // sonra API’den kesin senkronla
             await loadFacilities();
             if (created?.id) el("ownerFacilitySel").value = String(created.id);
 
@@ -454,7 +451,8 @@ window.UI = (function () {
         } catch (err) {
             notice("Facility oluşturma hatası ❌\n" + parseErr(err), "err", err?.body);
         }
-    };
+    }
+
 
     async function createPitch() {
         const facilityId = selectedFacilityId();
@@ -579,11 +577,13 @@ window.UI = (function () {
         await loadPitches();
         await loadRequests();
         await loadPricing();
-        // küçük UX: facility değişince bilgi
         notice("Facility değişti. Kurulum alanları güncellendi ✅", "ok");
     }
 
-    async function refreshAll() {
+    async function refreshAll(e) {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+
         await loadFacilities();
         await loadDurations();
         await onFacilityChanged();
