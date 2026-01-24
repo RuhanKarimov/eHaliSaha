@@ -47,13 +47,13 @@ public abstract class BaseE2ETestE2E {
         String v = cfg("BASE_URL", "E2E_BASE_URL", "e2e.baseUrl", "e2e.base_url");
         if (v != null) return v;
 
-        String mode = cfg("E2E_MODE", "e2e.mode");
-        if (mode != null && mode.equalsIgnoreCase("host")) {
-            String hostPort = cfg("APP_HOST_PORT", "e2e.appHostPort");
-            if (hostPort == null) hostPort = "18080";
-            return "http://host.docker.internal:" + hostPort;
-        }
-        return "http://host.docker.internal:18080";
+//        String mode = cfg("E2E_MODE", "e2e.mode");
+//        if (mode != null && mode.equalsIgnoreCase("host")) {
+//            String hostPort = cfg("APP_HOST_PORT", "e2e.appHostPort");
+//            if (hostPort == null) hostPort = "18080";
+//            return "http://host.docker.internal:" + hostPort;
+//        }
+        return "http://app:8080";
     }
 
     protected String seleniumUrl() {
